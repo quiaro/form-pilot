@@ -1,7 +1,7 @@
-"""LangGraph implementation for trending information retrieval."""
 from typing import Dict, List, TypedDict, Annotated, Sequence, Union, cast
 import operator
 import json
+import os
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
@@ -9,7 +9,8 @@ from langgraph.prebuilt import ToolNode
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, FunctionMessage
 from langchain_core.tools import BaseTool
 from langchain_google_community.search import GoogleSearchRun, GoogleSearchAPIWrapper
-from .tools import google_trends, reddit_search
+from app.tools import google_trends, reddit_search
+import PyPDF2
 
 
 model = None
@@ -30,15 +31,70 @@ system_message = SystemMessage(
 # Define the state schema
 class AgentState(TypedDict):
     messages: Annotated[List[Union[HumanMessage, AIMessage, SystemMessage, FunctionMessage]], add_messages]
-
+    form_filepath: str
+    form_data: Dict
 
 # Factory function to create AgentState with system message
-def create_agent_state(messages: List[Union[HumanMessage, AIMessage, SystemMessage, FunctionMessage]] = None) -> AgentState:
+def create_agent_state(messages: List[Union[HumanMessage, AIMessage, SystemMessage, FunctionMessage]] = None, form_filepath: str = None) -> AgentState:
     all_messages = [system_message]
     if messages:
         all_messages.extend(messages)
-    return AgentState(messages=all_messages)
+    return AgentState(messages=all_messages, form_filepath=form_filepath)
 
+def parse_pdf_form(state: AgentState) -> Dict:
+    """
+    Parse a PDF form and return the data as a dictionary in the required format.
+    """
+    form_filepath = state["form_filepath"]
+    fields = []
+    try:
+        with open(os.path.join(os.getcwd(), form_filepath), "rb") as f:
+            reader = PyPDF2.PdfReader(f)
+            if \
+                hasattr(reader, "get_fields") and callable(getattr(reader, "get_fields")):
+                pdf_fields = reader.get_fields()
+            else:
+                pdf_fields = None
+            if pdf_fields:
+                for field_name, field in pdf_fields.items():
+                    field_type = field.get("/FT", "text")
+                    if field_type == "/Btn":
+                        type_str = "checkbox"
+                    elif field_type == "/Ch":
+                        type_str = "dropdown"
+                    else:
+                        type_str = "text"
+                    options = []
+                    if type_str == "dropdown":
+                        opts = field.get("/Opt")
+                        if opts:
+                            if isinstance(opts, list):
+                                options = [str(opt) for opt in opts]
+                            else:
+                                options = [str(opts)]
+                    value = field.get("/V", "")
+                    fields.append({
+                        "label": field_name,
+                        "description": field.get("/TU", ""),
+                        "type": type_str,
+                        "docId": None,
+                        "value": value,
+                        "options": options,
+                        "lastProcessed": "",
+                        "lastSurveyed": ""
+                    })
+            else:
+                # No AcroForm fields found
+                pass
+    except Exception as e:
+        raise Exception(f"Error parsing PDF form: {str(e)}")
+    return {
+        "form_data": {
+            "formFileName": form_filepath,
+            "lastSaved": "",
+            "fields": fields
+        }
+    }
 
 # Define the agent node
 def agent(state: AgentState) -> Dict:
@@ -89,23 +145,24 @@ def build_graph() -> StateGraph:
         A configured StateGraph
     """
     global model
-    model = ChatOpenAI(model="gpt-4o", temperature=0)
-    model = model.bind_tools(tools)
+    # model = ChatOpenAI(model="gpt-4o", temperature=0)
+    # model = model.bind_tools(tools)
 
     # Create the workflow graph
     workflow = StateGraph(AgentState)
     
     # Add nodes
-    workflow.add_node("agent", agent)
-    workflow.add_node("tool_selector", tool_selector)
+    workflow.add_node("parse_pdf_form", parse_pdf_form)
+    # workflow.add_node("agent", agent)
+    # workflow.add_node("tool_selector", tool_selector)
     
     # Add edges
-    workflow.add_conditional_edges(
-        "agent",
-        should_continue
-    )
-    workflow.add_edge("tool_selector", "agent")
+    # workflow.add_conditional_edges(
+    #     "agent",
+    #     should_continue
+    # )
+    # workflow.add_edge("tool_selector", "agent")
     
-    workflow.set_entry_point("agent")
+    workflow.set_entry_point("parse_pdf_form")
     
     return workflow.compile()

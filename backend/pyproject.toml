@@ -16,9 +16,8 @@ dependencies = [
   "langchain-openai>=0.3.18",
   "langgraph>=0.4.7",
   "markdown>=3.8",
-  "python-socketio[asgi]>=5.13.0",
+  "pypdf2>=3.0.1",
   "uvicorn>=0.34.2",
-  "websocket-client>=1.8.0",
 ]
 
 [project.optional-dependencies]

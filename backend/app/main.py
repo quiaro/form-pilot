@@ -15,6 +15,7 @@ import markdown
 from langchain_core.messages import HumanMessage, AIMessage
 from app.graph import build_graph, create_agent_state
 from datetime import datetime
+from pydantic import BaseModel
 
 
 graph = build_graph()
@@ -43,70 +44,21 @@ VALID_CATEGORIES = [
     "Technology"
 ]
 
-async def stream_agent_response(category: str):
-    """
-    Stream the agent's response for a given category.
-    
-    Args:
-        category: The trending category to query
-        
-    Yields:
-        Chunks of the agent's response as HTML
-    """
-    # Create the initial prompt
-    prompt = f"Find some information related to this {category.lower()} from Google and Reddit. The information provided must be up to date. Today is {datetime.now().strftime('%B')} {datetime.now().day}, {datetime.now().year}. "
-    
-    # Initialize state
-    state = create_agent_state(messages=[HumanMessage(content=prompt)])
-    
-    # Process through the graph
-    try:
-        async for chunk in graph.astream(state, stream_mode="updates"):
-            for node, values in chunk.items():
-                # Only yield messages from the agent
-                if node == "agent":
-                    last_message = values["messages"][-1].text()
-                    if last_message != "":
-                        # Convert markdown to HTML
-                        html_content = markdown.markdown(last_message)
-                        yield html_content
+class ParsePDFFormRequest(BaseModel):
+    pdf_file: str
 
-    except Exception as e:
-        # Log the error but don't raise it to avoid breaking the stream
-        print(f"Error in streaming response: {str(e)}")
-        yield f"\n\nError during response generation: {str(e)}"
-
-
-@app.get("/api/trending/{category}")
-async def get_trending(
-    category: str = Path(..., description="The category to get trending information for")
-):
+@app.post("/api/parse_pdf_form")
+async def parse_pdf_form(request: ParsePDFFormRequest):
     """
-    Get trending information for a specific category.
-    
-    Args:
-        category: The category to get trending information for
-        
-    Returns:
-        A streaming response with trending information as HTML
+    Parse a PDF form given its file path.
     """
-    # Validate category
-    if category not in VALID_CATEGORIES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid category. Must be one of: {', '.join(VALID_CATEGORIES)}"
-        )
-    
-    # Return streaming response
-    return StreamingResponse(
-        stream_agent_response(category),
-        media_type="text/event-stream",
-        headers={
-            "X-Accel-Buffering": "no",  # Disable buffering for Nginx
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-        }
-    )
+    # Get the form filepath from the request
+    form_filepath = request.pdf_file
+
+    state = create_agent_state(form_filepath=form_filepath)
+    output = await graph.ainvoke(state)
+    return output["form_data"]
+
 
 @app.get("/api/categories")
 async def get_categories():
@@ -161,4 +113,4 @@ if __name__ == "__main__":
     # Only enable auto-reload in development
     reload = env.lower() == "development"
     
-    uvicorn.run("app.main:app", host=host, port=port) 
+    uvicorn.run("app.main:app", host=host, port=port, reload=reload) 
