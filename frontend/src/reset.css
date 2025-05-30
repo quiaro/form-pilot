@@ -1,0 +1,89 @@
+/* CSS Reset */
+
+/* Box sizing for all elements */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Remove default margin and padding */
+* {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  vertical-align: baseline;
+}
+
+/* HTML5 display-role reset for older browsers */
+article,
+aside,
+details,
+figcaption,
+figure,
+footer,
+header,
+hgroup,
+menu,
+nav,
+section {
+  display: block;
+}
+
+/* Set line height */
+body {
+  line-height: 1;
+}
+
+/* Reset quotes */
+blockquote,
+q {
+  quotes: none;
+}
+
+blockquote:before,
+blockquote:after,
+q:before,
+q:after {
+  content: '';
+  content: none;
+}
+
+/* Reset table borders */
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+/* Prevent text resizing in iOS */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Remove default button styling */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: 100%;
+  line-height: 1.15;
+  margin: 0;
+}
+
+button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* Remove focus outlines for mouse users, keep for keyboard users */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+ol,
+ul {
+  list-style: none;
+}
