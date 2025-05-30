@@ -63,6 +63,8 @@ def parse_pdf_form(state: AgentState) -> Dict:
                     field_type = field.get("/FT", "text")
                     if field_type == "/Btn":
                         # Extract base name for checkbox group (remove any numeric suffix)
+                        
+                        # TODO: Get the correct labels for the checkboxes
                         base_name = ''.join(c for c in field_name if not c.isdigit())
                         if base_name not in checkbox_groups:
                             checkbox_groups[base_name] = []
