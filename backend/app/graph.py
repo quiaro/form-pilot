@@ -47,39 +47,59 @@ def parse_pdf_form(state: AgentState) -> Dict:
     """
     form_filepath = state["form_filepath"]
     fields = []
+    checkbox_groups = {}  # Dictionary to group checkboxes
+    
     try:
         with open(os.path.join(os.getcwd(), form_filepath), "rb") as f:
             reader = PyPDF2.PdfReader(f)
-            if \
-                hasattr(reader, "get_fields") and callable(getattr(reader, "get_fields")):
+            if hasattr(reader, "get_fields") and callable(getattr(reader, "get_fields")):
                 pdf_fields = reader.get_fields()
             else:
                 pdf_fields = None
+                
             if pdf_fields:
+                # First pass: collect all checkboxes
                 for field_name, field in pdf_fields.items():
                     field_type = field.get("/FT", "text")
                     if field_type == "/Btn":
-                        type_str = "checkbox"
-                    elif field_type == "/Ch":
-                        type_str = "dropdown"
+                        # Extract base name for checkbox group (remove any numeric suffix)
+                        base_name = ''.join(c for c in field_name if not c.isdigit())
+                        if base_name not in checkbox_groups:
+                            checkbox_groups[base_name] = []
+                        checkbox_groups[base_name].append({
+                            "name": field_name,
+                            "value": field.get("/V", ""),
+                            "description": field.get("/TU", "")
+                        })
                     else:
-                        type_str = "text"
-                    options = []
-                    if type_str == "dropdown":
-                        opts = field.get("/Opt")
-                        if opts:
-                            if isinstance(opts, list):
-                                options = [str(opt) for opt in opts]
-                            else:
-                                options = [str(opts)]
-                    value = field.get("/V", "")
+                        # Handle non-checkbox fields
+                        type_str = "dropdown" if field_type == "/Ch" else "text"
+                        options = []
+                        if type_str == "dropdown":
+                            opts = field.get("/Opt")
+                            if opts:
+                                options = [str(opt) for opt in opts] if isinstance(opts, list) else [str(opts)]
+                        
+                        fields.append({
+                            "label": field_name,
+                            "description": field.get("/TU", ""),
+                            "type": type_str,
+                            "docId": None,
+                            "value": field.get("/V", ""),
+                            "options": options,
+                            "lastProcessed": "",
+                            "lastSurveyed": ""
+                        })
+                
+                # Second pass: add grouped checkboxes
+                for base_name, checkboxes in checkbox_groups.items():
                     fields.append({
-                        "label": field_name,
-                        "description": field.get("/TU", ""),
-                        "type": type_str,
+                        "label": base_name,
+                        "description": checkboxes[0]["description"],
+                        "type": "checkbox_group",
                         "docId": None,
-                        "value": value,
-                        "options": options,
+                        "value": [cb["value"] for cb in checkboxes],
+                        "options": [cb["name"] for cb in checkboxes],
                         "lastProcessed": "",
                         "lastSurveyed": ""
                     })
@@ -88,6 +108,7 @@ def parse_pdf_form(state: AgentState) -> Dict:
                 pass
     except Exception as e:
         raise Exception(f"Error parsing PDF form: {str(e)}")
+        
     return {
         "form_data": {
             "formFileName": form_filepath,
