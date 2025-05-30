@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "form-pilot-backend"
 version = "0.1.0"
 description = "Backend server for trending information retrieval"
-requires-python = ">=3.9"
+requires-python = ">=3.13"
 dependencies = [
   "fastapi>=0.115.12",
   "httpx>=0.28.1",
