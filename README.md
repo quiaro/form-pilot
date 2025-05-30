@@ -1,5 +1,5 @@
 ---
-title: Trending Information App - Agent Demo
+title: Form Pilot
 emoji: 🤖
 colorFrom: indigo
 colorTo: blue
@@ -8,38 +8,16 @@ python_version: 3.13
 app_port: 7860
 app_file: app.main.py
 pinned: false
-short_description: Fetch latest trending information on various categories
+short_description: Agentic app to make filling PDF forms effortless.
 ---
 
-# Trending Information App
+# Form Pilot
 
-This application lets users fetch the latest trending information on various categories. It consists of a FastAPI backend that uses LangGraph to process queries and a React frontend.
+Agentic app to make filling PDF forms effortless. Upload a PDF form and let the agent do the rest. It consists of a FastAPI backend that uses LangGraph to process queries and a React frontend.
 
 ## Features
 
-- Select from multiple trending categories
-- Streaming responses for real-time information
-- Uses LangGraph to orchestrate a multi-step AI-powered search process
-- Implements a microservice architecture with a frontend and backend
-
-## Project Structure
-
-```
-/form-pilot
-  /backend             # FastAPI server
-    /app
-      main.py          # Server endpoints
-      graph.py         # LangGraph implementation
-      tools.py         # Search tools
-    requirements.txt   # Python dependencies
-    .env               # Environment variables (create from .env.example)
-  /frontend            # React application
-    /src
-      /components      # React components
-      main.jsx         # React entry point
-    index.html         # HTML template
-    package.json       # JavaScript dependencies
-```
+TO-DO
 
 ## Setup and Installation
 
@@ -127,10 +105,3 @@ This application lets users fetch the latest trending information on various cat
   - The file contains `OPENAI_API_KEY=sk-your-actual-api-key-here` with your real API key
   - There are no spaces around the equals sign
   - The API key is valid and has not expired
-
-## Implementation Details
-
-- The backend implements a LangGraph workflow with multiple tools for fetching trending information
-- Environment variables are loaded from a .env file using python-dotenv
-- The frontend makes requests to the backend API and streams the response
-- The components are decoupled for maintainability and scalability
