@@ -3,7 +3,7 @@ import os
 import json
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
-from langgraph.graph import StateGraph
+from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, FunctionMessage
 from datetime import datetime
@@ -161,6 +161,18 @@ def dropdown_field_processor(field: Dict, context: str) -> Dict:
     output_field = field.copy()
     return output_field
 
+def create_form_checkpoint(state: AgentState) -> Dict:
+    """
+    Persist in-memory data structure of the form to disk
+    """
+    filled_form = state["filled_form"]
+    filled_form["lastSaved"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    filename = filled_form["formFileName"]
+    filename = filename.replace("/forms/", "/checkpoints/")
+    filename = filename.replace(".pdf", ".json")
+    with open(filename, "w") as f:
+        json.dump(filled_form, f)
+    return state
 
 # Build the graph
 def build_graph() -> StateGraph:
@@ -177,7 +189,10 @@ def build_graph() -> StateGraph:
     
     # Add nodes
     workflow.add_node("in_memory_form_filler", in_memory_form_filler)
+    workflow.add_node("create_form_checkpoint", create_form_checkpoint)
     
     workflow.set_entry_point("in_memory_form_filler")
-    
+    workflow.add_edge("in_memory_form_filler", "create_form_checkpoint")
+    workflow.add_edge("create_form_checkpoint", END)
+
     return workflow.compile()
