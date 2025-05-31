@@ -104,7 +104,7 @@ async def text_field_processor(field: Dict, context: str) -> Dict:
     Uses an LLM to find the answer to the field using the context data. If the context data is not enough for filling the field, leave the field empty.
     """
     llm = ChatOllama(
-        model="gemma3:4b",
+        model=os.getenv("PREFILL_LLM", "gemma3:4b"),
         temperature=0.0
     )
 

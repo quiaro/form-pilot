@@ -144,8 +144,8 @@ if os.getenv("ENV", "development").lower() == "production":
 if __name__ == "__main__":
     import uvicorn
     # Get host and port from environment variables or use defaults
-    host = os.getenv("HOST", "0.0.0.0")
-    port = int(os.getenv("PORT", "8000"))
+    host = os.getenv("API_TEST_HOST", "0.0.0.0")
+    port = int(os.getenv("API_TEST_PORT", "8000"))
     env = os.getenv("ENV", "development")
     
     # Only enable auto-reload in development
