@@ -21,10 +21,3 @@ def setup():
           sys.exit(1)
 
       load_dotenv(dotenv_path)
-
-    openai_api_key = os.getenv("OPENAI_API_KEY")
-    if not openai_api_key:
-        print("Error: OPENAI_API_KEY environment variable not set.")
-        sys.exit(1)
-
-    os.environ["OPENAI_API_KEY"] = openai_api_key
