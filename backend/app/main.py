@@ -13,12 +13,14 @@ from fastapi.responses import FileResponse
 import asyncio
 import markdown
 from langchain_core.messages import HumanMessage, AIMessage
-from app.graphs.form_pilot import build_graph, create_agent_state
+from app.graphs.form_pilot import build_graph as build_form_pilot_graph, create_agent_state as form_pilot_create_agent_state
+from app.graphs.load_context import build_graph as build_load_context_graph, create_agent_state as load_context_create_agent_state
 from datetime import datetime
 from pydantic import BaseModel
 
 
-graph = build_graph()
+form_pilot_graph = build_form_pilot_graph()
+load_context_graph = build_load_context_graph()
 app = FastAPI(title="Form Pilot")
 
 # Add CORS middleware
@@ -55,9 +57,25 @@ async def parse_pdf_form(request: ParsePDFFormRequest):
     # Get the form filepath from the request
     form_filepath = request.pdf_file
 
-    state = create_agent_state(form_filepath=form_filepath)
-    output = await graph.ainvoke(state)
+    state = form_pilot_create_agent_state(form_filepath=form_filepath)
+    output = await form_pilot_graph.ainvoke(state)
     return output["form_data"]
+
+
+class LoadContextRequest(BaseModel):
+    document_filepaths: List[str]
+
+@app.post("/api/load_context")
+async def load_context(request: LoadContextRequest):
+    """
+    Load context from a list of document file paths.
+    """
+    # Get the form filepath from the request
+    docs_filepaths = request.document_filepaths
+
+    state = load_context_create_agent_state(docs_filepaths=docs_filepaths)
+    output = await load_context_graph.ainvoke(state)
+    return output["docs_data"]
 
 
 @app.get("/api/categories")
