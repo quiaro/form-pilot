@@ -13,11 +13,11 @@ short_description: Agentic app to make filling PDF forms effortless.
 
 # Form Pilot
 
-Agentic app to make filling PDF forms effortless. Upload a PDF form and let the agent do the rest. It consists of a FastAPI backend that uses LangGraph to process queries and a React frontend.
+Agentic app to make filling PDF forms effortless. Upload a PDF form and let the agent do the rest. This app uses [Streamlit](https://docs.streamlit.io/) in the frontend and [LangGraph](https://langchain-ai.github.io/langgraph/concepts/why-langgraph/) in the backend, plus other great packages listed in `pyproject.toml`.
 
 ## Features
 
-TO-DO
+TODO: Write brief summary of what the app does
 
 ## Setup and Installation
 
@@ -28,100 +28,77 @@ TO-DO
 - npm
 - Docker (optional, for containerized deployment)
 
-### Backend
+#### Create a `.env` file by copying `.env.example`:
 
-1. Navigate to the backend directory:
+```
+cp .env.example .env
+```
 
-   ```
-   cd backend
-   ```
+#### Ollama
 
-2. Create virtual environment using uv:
+The application uses LLM models running locally using [Ollama](https://ollama.com/).
+To see/change the models used, edit the `.env` file.
 
-   ```
-   uv venv .venv
-   ```
-
-3. Activate virtual environment:
+1. Pull models specified in `.env` file:
 
    ```
-   source .venv/bin/activate
+   ollama pull <model_name>
    ```
 
-4. Install dependencies using uv:
-
+2. Run models before launching the app:
    ```
-   uv pip install -r requirements.txt
-   ```
-
-5. Create a `.env` file from the example:
-
-   ```
-   cp .env.example .env
+   ollama run <model_name>
    ```
 
-6. Edit the `.env` file to add the different API keys:
+### Run Locally
 
-7. Start the server:
-   ```
-   python -m app.main
-   ```
-
-### Frontend
-
-1. Navigate to the frontend directory:
+1. Install dependencies and create virtual environment with `uv`
 
    ```
-   cd frontend
+   uv sync
    ```
 
-2. Install dependencies:
-
+2. Run the app on http://0.0.0.0:7860/
    ```
-   npm install
-   ```
-
-3. Start the development server:
-
-   ```
-   npm run dev
+   streamlit run app/app.py
    ```
 
-4. Open your browser and go to http://localhost:3000
+> If you wish to change any settings to the frontend of the app, edit `config.toml` in the `.streamlit` folder. Follow the [Streamlit configuration instructions](https://docs.streamlit.io/develop/api-reference/configuration).
 
-## Usage
+### Run in Docker container
 
-1. Select a category from the dropdown menu
-2. Click "Show me trending information"
-3. View the real-time streaming response in the content section
+1. Create the docker image from the Dockerfile
 
-## Troubleshooting
+   ```
+   docker build -t "form_pilot:latest" .
+   ```
 
-### Common Issues
-
-- **OpenAI API Key Error**: If you see an error about the OpenAI API key, make sure:
-
-  - You have created a `.env` file in the backend directory
-  - The file contains `OPENAI_API_KEY=sk-your-actual-api-key-here` with your real API key
-  - There are no spaces around the equals sign
-  - The API key is valid and has not expired
+2. Run the docker container from the docker image. The app will run `http://0.0.0.0:7860/`.
+   ```
+   docker run --name form_pilot -p 7860:7860 -d form_pilot:latest
+   ```
 
 ## Test Strings
 
-Test parsing of the PDF form
+A test server can be run to test specific aspects of the backend code:
+
+```
+python -m app.main.py
+```
+
+- Test parsing of the PDF form
 
 ```
 curl -X POST "http://localhost:7860/api/parse_pdf_form" -H "Content-Type: application/json" -d '{"pdf_file": "app/docs/forms/form-example.pdf"}'
 ```
 
-Test the loading of supporting documents into memory
-(To test this, create a Word document with information related to the fields in the form)
+- Test the loading of supporting documents into memory (to test this, create a Word document with information related to the fields in the form)
 
 ```
 curl -X POST http://localhost:7860/api/load_context  -H "Content-Type: application/json"   -d '{"document_filepaths": ["app/docs/context/info.docx"]}'
 ```
 
-Test pre-filling of a form using supporting documents
+- Test pre-filling of a form using supporting documents
 
 ```
 curl -X POST http://localhost:7860/api/pre_fill_form  -H "Content-Type: application/json"   -d '{"form_data": {"formFileName":"app/docs/forms/form-example.pdf","lastSaved":"","fields":[{"label":"Given Name Text Box","description":"First name","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Family Name Text Box","description":"Last name","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Address 1 Text Box","description":"","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"House nr Text Box","description":"House and floor","type":"text","docId":null,"value":"ewresd fdsf wr","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Address 2 Text Box","description":"","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Postcode Text Box","description":"","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"City Text Box","description":"","type":"text","docId":null,"value":"erewrs erter tertret ert ertertd fsdf ","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Country Combo Box","description":"Use selection or write country name","type":"dropdown","docId":null,"value":"ert t ert","options":["Austria","Belgium","Britain","Bulgaria","Croatia","Cyprus","Czech-Republic","Denmark","Estonia","Finland","France","Germany","Greece","Hungary","Ireland","Italy","Latvia","Lithuania","Luxembourg","Malta","Netherlands","Poland","Portugal","Romania","Slovakia","Slovenia","Spain","Sweden"],"lastProcessed":"","lastSurveyed":""},{"label":"Gender List Box","description":"Select from list","type":"dropdown","docId":null,"value":"Man","options":["Man","Woman"],"lastProcessed":"","lastSurveyed":""},{"label":"Height Formatted Field","description":"Value from 40 to 250 cm","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Favourite Colour List Box","description":"Select from colour spectrum","type":"dropdown","docId":null,"value":"Red","options":["Black","Brown","Red","Orange","Yellow","Green","Blue","Violet","Grey","White"],"lastProcessed":"","lastSurveyed":""},{"label":"Driving License Check Box","description":"Car driving license","type":"checkbox_group","docId":null,"value":["/Off"],"options":["Driving License Check Box"],"lastProcessed":"","lastSurveyed":""},{"label":"Language  Check Box","description":"","type":"checkbox_group","docId":null,"value":["/Off","/Yes","/Off","/Off","/Off"],"options":["Language 1 Check Box","Language 2 Check Box","Language 3 Check Box","Language 4 Check Box","Language 5 Check Box"],"lastProcessed":"","lastSurveyed":""}]}, "docs_data": [{"docId":"app/docs/context/david-q_info.docx__20250530185312","docType":"docx","dateCreated":"2025-05-30 18:53:12","content":"Name: David\n\nHeight: 170cm\n\nAddress: \n\nUrbanización La Antigua \n\nCalle Jade, Casa #435\n\nTres Ríos, Cartago\n\nZip code: 30301"}]}'
