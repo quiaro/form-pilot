@@ -5,7 +5,8 @@
 /.venv
 /env
 __pycache__
-/backend/app/docs/context/
+/app/docs/context/
+/app/docs/checkpoints/
 
 node_modules
 .vscode
