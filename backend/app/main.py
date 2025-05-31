@@ -15,12 +15,14 @@ import markdown
 from langchain_core.messages import HumanMessage, AIMessage
 from app.graphs.form_pilot import build_graph as build_form_pilot_graph, create_agent_state as form_pilot_create_agent_state
 from app.graphs.load_context import build_graph as build_load_context_graph, create_agent_state as load_context_create_agent_state
+from app.graphs.pre_fill_form import build_graph as build_pre_fill_form_graph, create_agent_state as pre_fill_form_create_agent_state
 from datetime import datetime
 from pydantic import BaseModel
 
 
 form_pilot_graph = build_form_pilot_graph()
 load_context_graph = build_load_context_graph()
+pre_fill_form_graph = build_pre_fill_form_graph()
 app = FastAPI(title="Form Pilot")
 
 # Add CORS middleware
@@ -76,6 +78,24 @@ async def load_context(request: LoadContextRequest):
     state = load_context_create_agent_state(docs_filepaths=docs_filepaths)
     output = await load_context_graph.ainvoke(state)
     return output["docs_data"]
+
+
+class PreFillFormRequest(BaseModel):
+    form_data: Dict
+    docs_data: List[Dict]
+
+@app.post("/api/pre_fill_form")
+async def pre_fill_form(request: PreFillFormRequest):
+    """
+    Pre-fill a form with context from a list of document file paths.
+    """
+    # Get the form filepath from the request
+    form_data = request.form_data
+    docs_data = request.docs_data
+
+    state = pre_fill_form_create_agent_state(form_data=form_data, docs_data=docs_data)
+    output = await pre_fill_form_graph.ainvoke(state)
+    return output["filled_form"]
 
 
 @app.get("/api/categories")
