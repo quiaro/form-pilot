@@ -38,20 +38,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Valid categories
-VALID_CATEGORIES = [
-    "Business and Finance",
-    "Entertainment",
-    "Food and Drink",
-    "Games",
-    "Health",
-    "Hobbies and Leisure",
-    "Jobs and Education",
-    "Science",
-    "Sports",
-    "Technology"
-]
-
 class ParsePDFFormRequest(BaseModel):
     pdf_file: str
 
@@ -134,50 +120,6 @@ async def judge_answer(request: JudgeAnswerRequest):
     state = judge_answer_create_agent_state(form_fields=form_fields, unanswered_field=unanswered_field, answer=answer)
     output = await judge_answer_graph.ainvoke(state)
     return output["answered_field"]
-
-
-@app.get("/api/categories")
-async def get_categories():
-    """
-    Get the list of valid categories.
-    
-    Returns:
-        List of valid categories
-    """
-    return {"categories": VALID_CATEGORIES}
-
-# Determine the frontend build directory 
-# If in Docker, the frontend build is at /app/frontend/build
-# If running locally, use relative path ../frontend/build
-FRONTEND_BUILD_DIR = "/app/frontend/build"
-FRONTEND_STATIC_DIR = os.path.join(FRONTEND_BUILD_DIR, "assets")
-FRONTEND_INDEX_HTML = os.path.join(FRONTEND_BUILD_DIR, "index.html")
-
-# Mount the frontend build folder (only in production)
-if os.getenv("ENV", "development").lower() == "production":
-    print("Production environment detected")
-    @app.get("/", include_in_schema=False)
-    async def root():
-        return FileResponse(FRONTEND_INDEX_HTML)
-
-    # Catch-all route to serve React Router paths
-    @app.get("/{full_path:path}", include_in_schema=False)
-    async def serve_react_app(full_path: str):
-        # If the path is an API endpoint, skip this handler
-        if full_path.startswith("api"):
-            raise HTTPException(status_code=404, detail="Not found")
-        
-        # Check if a static file exists in the build folder
-        static_file_path = os.path.join(FRONTEND_BUILD_DIR, full_path)
-        if os.path.isfile(static_file_path):
-            return FileResponse(static_file_path)
-        
-        # Otherwise, serve the index.html for client-side routing
-        return FileResponse(FRONTEND_INDEX_HTML)
-
-    # Mount static files (JavaScript, CSS, images)
-    app.mount("/assets", StaticFiles(directory=FRONTEND_STATIC_DIR), name="static")
-
 
 if __name__ == "__main__":
     import uvicorn
