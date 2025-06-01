@@ -17,6 +17,7 @@ from app.graphs.form_pilot import build_graph as build_form_pilot_graph, create_
 from app.graphs.load_context import build_graph as build_load_context_graph, create_agent_state as load_context_create_agent_state
 from app.graphs.pre_fill_form import build_graph as build_pre_fill_form_graph, create_agent_state as pre_fill_form_create_agent_state
 from app.graphs.generate_question import build_graph as build_generate_question_graph, create_agent_state as generate_question_create_agent_state
+from app.graphs.judge_answer import build_graph as build_judge_answer_graph, create_agent_state as judge_answer_create_agent_state
 from datetime import datetime
 from pydantic import BaseModel
 
@@ -25,6 +26,7 @@ form_pilot_graph = build_form_pilot_graph()
 load_context_graph = build_load_context_graph()
 pre_fill_form_graph = build_pre_fill_form_graph()
 generate_question_graph = build_generate_question_graph()
+judge_answer_graph = build_judge_answer_graph()
 app = FastAPI(title="Form Pilot")
 
 # Add CORS middleware
@@ -114,6 +116,24 @@ async def generate_question(request: GenerateQuestionRequest):
     state = generate_question_create_agent_state(form_fields=form_fields, unanswered_field=form_field)
     output = await generate_question_graph.ainvoke(state)
     return output["question"]
+
+class JudgeAnswerRequest(BaseModel):
+    form_data: Dict
+    unanswered_field: Dict
+    answer: str
+
+@app.post("/api/judge_answer")
+async def judge_answer(request: JudgeAnswerRequest):
+    """
+    Generate a question for a form field.
+    """
+    form_fields = request.form_data["fields"]
+    unanswered_field = request.unanswered_field
+    answer = request.answer
+
+    state = judge_answer_create_agent_state(form_fields=form_fields, unanswered_field=unanswered_field, answer=answer)
+    output = await judge_answer_graph.ainvoke(state)
+    return output["answered_field"]
 
 
 @app.get("/api/categories")
