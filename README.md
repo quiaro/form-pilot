@@ -126,5 +126,9 @@ curl -X POST http://localhost:7861/api/judge_answer -H "Content-Type: applicatio
 
 ## TODO List
 
+- Integrate graphs with Streamlit UI
 - Write brief summary of the app's features i.e. add Features section in README.md
 - Error handling for thrown errors
+- Complete `complete_form_field` graph
+- Synthesize graphs
+- Give AgentStates in graphs more descriptive names
