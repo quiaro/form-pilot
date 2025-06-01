@@ -15,6 +15,15 @@ short_description: Agentic app to make filling PDF forms effortless.
 
 Agentic app to make filling PDF forms effortless. Upload a PDF form and let the agent do the rest. This app uses [Streamlit](https://docs.streamlit.io/) in the frontend and [LangGraph](https://langchain-ai.github.io/langgraph/concepts/why-langgraph/) in the backend, plus other great packages listed in `pyproject.toml`.
 
+## How it works
+
+1. User uploads an empty or incomplete PDF form
+2. User uploads any supporting documents for the form
+3. The app prefills the form with any data that exists in the supporting documents
+4. For the fields that were not prefilled, the app will ask the user for the answers to these fields
+5. When the app is done requesting information from the user, the user can view a preview of the completed PDF form
+6. The user can download the completed PDF form
+
 ## Setup and Installation
 
 ### Prerequisites
@@ -73,6 +82,11 @@ To see/change the models used, edit the `.env` file.
    ```
    docker run --name form_pilot -p 7860:7860 -d form_pilot:latest
    ```
+
+## Roadmap
+
+- User can ask the app to edit any field at any time
+- Replace text interface with voice
 
 ## Test Strings
 
