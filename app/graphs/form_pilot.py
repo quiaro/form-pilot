@@ -42,17 +42,15 @@ def parse_pdf_form(state: AgentState) -> Dict:
             if pdf_fields:
                 # First pass: collect all checkboxes
                 for field_name, field in pdf_fields.items():
-                    field_type = field.get("/FT", "text")
+                    field_type = field.get("/FT")
                     if field_type == "/Btn":
                         # Extract base name for checkbox group (remove any numeric suffix)
-                        
-                        # TODO: Get the correct labels for the checkboxes
                         base_name = ''.join(c for c in field_name if not c.isdigit())
                         if base_name not in checkbox_groups:
                             checkbox_groups[base_name] = []
                         checkbox_groups[base_name].append({
                             "name": field_name,
-                            "value": field.get("/V", ""),
+                            "value": field.get("/V", "/Off"),
                             "description": field.get("/TU", "")
                         })
                     else:
@@ -63,6 +61,10 @@ def parse_pdf_form(state: AgentState) -> Dict:
                             opts = field.get("/Opt")
                             if opts:
                                 options = [str(opt) for opt in opts] if isinstance(opts, list) else [str(opts)]
+                        
+                        # Check if it's a list box (multiple selection dropdown)
+                        if field.get("/Ff", 0) & 0x20000:  # 0x20000 is the flag for multiple selection
+                            type_str = "list_box"
                         
                         fields.append({
                             "label": field_name,
@@ -87,9 +89,6 @@ def parse_pdf_form(state: AgentState) -> Dict:
                         "lastProcessed": "",
                         "lastSurveyed": ""
                     })
-            else:
-                # No AcroForm fields found
-                pass
     except Exception as e:
         raise Exception(f"Error parsing PDF form: {str(e)}")
         

@@ -1,7 +1,7 @@
 from typing import Dict, List, TypedDict, Annotated, Union
 import os
 import json
-from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
@@ -9,7 +9,9 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, Func
 from datetime import datetime
 
 system_message = SystemMessage(
-    content="""You are a helpful assistant that provides random information about a topic."""
+    content="""You are a precise form filling assistant that extracts information from documents to fill form fields accurately. 
+    You carefully analyze the context and only provide information that is explicitly stated in the documents.
+    If information is not found in the context, you leave the field empty."""
 )
 
 # Define the state schema
@@ -61,31 +63,55 @@ async def in_memory_form_filler(state: AgentState) -> Dict:
     form_data = state["form_data"]
     docs_data = state["docs_data"]
 
+    print("\nStarting form filling process...")
+    print(f"Number of documents loaded: {len(docs_data)}")
+    print(f"Number of form fields to process: {len(form_data['fields'])}")
+
     form_fields = form_data["fields"]
     output_form = form_data.copy()
     output_fields = []
     # supporting documents
     context = "\n".join([doc_data_to_string(doc) for doc in docs_data])
+    print(f"\nTotal context length: {len(context)} characters")
+    print("First 200 characters of context:")
+    print(context[:200] + "...")
 
     for field in form_fields:
+        print(f"\nProcessing field: {field['label']} (Type: {field['type']})")
         output_field = field.copy()  # Always start with a copy
 
         try:
             if field["type"] == "text":
+                print("Using text field processor...")
                 output_field = await text_field_processor(field, context)
-            elif field["type"] == "checkbox":
-                output_field = checkbox_field_processor(field, context)
+            elif field["type"] == "checkbox" or field["type"] == "checkbox_group":
+                print("Using checkbox field processor...")
+                output_field = await checkbox_field_processor(field, context)
             elif field["type"] == "dropdown":
-                output_field = dropdown_field_processor(field, context)
+                print("Using dropdown field processor...")
+                output_field = await dropdown_field_processor(field, context)
+            elif field["type"] == "list_box":
+                print("Using list box field processor...")
+                output_field = await list_box_field_processor(field, context)
             else:
-                raise ValueError(f"Unsupported field type: {field['type']}")
+                print(f"Warning: Unsupported field type: {field['type']} for field {field['label']}")
+                output_field["lastProcessed"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            print(f"Field processed. Value: {output_field['value']}")
+            if output_field.get("docId"):
+                print(f"Information found in document: {output_field['docId']}")
+            else:
+                print("No matching information found in documents")
+                
         except Exception as e:
+            print(f"Error processing field {field['label']}: {str(e)}")
             output_field["lastProcessed"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             output_field["error"] = str(e)
 
         output_fields.append(output_field)
 
     output_form["fields"] = output_fields
+    print("\nForm filling process completed.")
     return {"filled_form": output_form}
 
 def parse_llm_response(response):
@@ -99,67 +125,171 @@ def parse_llm_response(response):
     except json.JSONDecodeError as e:
         raise ValueError(f"Failed to parse JSON response: {e}")
 
-async def text_field_processor(field: Dict, context: str) -> Dict:
+def format_pdf_value(value: Any, field_type: str, options: List[str] = None) -> Any:
     """
-    Uses an LLM to find the answer to the field using the context data. If the context data is not enough for filling the field, leave the field empty.
+    Format a value according to PDF requirements.
     """
-    llm = ChatOllama(
-        model=os.getenv("PREFILL_LLM", "gemma3:4b"),
-        temperature=0.0
+    if field_type == "checkbox_group":
+        # For checkboxes, ensure we have a list of "/Yes" or "/Off" values
+        if isinstance(value, list):
+            return [str(v) if v in ["/Yes", "/Off"] else "/Off" for v in value]
+        return ["/Off"]
+    elif field_type == "dropdown" or field_type == "list_box":
+        # For dropdowns and list boxes, ensure the value is in the options list
+        if options and value not in options:
+            return options[0] if field_type == "dropdown" else []
+        return value
+    else:
+        # For text fields, convert to string
+        return str(value) if value is not None else ""
+
+def get_llm():
+    """
+    Get the LLM instance with proper configuration
+    """
+    # You need to replace this with your actual OpenAI API key
+    OPENAI_API_KEY = ""  # Replace with your actual API key
+    
+    return ChatOpenAI(
+        model="gpt-3.5-turbo",
+        temperature=0.0,
+        api_key=OPENAI_API_KEY
     )
 
-    PROMPT = """
-        You are a helpful assistant whose task is to answer a field in a form to the best of your ability.
-        You are given information about the field and context to answer. 
-        You can only use the context to answer the field.
-
-        Respond with valid JSON only. Do not wrap in code blocks or add explanatory text.
-
-        Examples of correct responses:
-        {{"value": "John Smith", "docId": "doc123"}}
-        {{"value": "", "docId": null}}
-
-        Rules:
-        - If context lacks information: {{"value": "", "docId": null}}
-        - If context has information: {{"value": "your_answer", "docId": "source_document_id"}}
-        - Use null (not None) for missing docId
-        - Keep answers succinct
-
-        Field information: 
-        - Label: {field[label]}
-        - Description: {field[description]}
-        - Type: {field[type]}
-
-        Context: {context}
+async def text_field_processor(field: Dict, context: str) -> Dict:
     """
-    rag_prompt = ChatPromptTemplate.from_template(PROMPT)
-    messages = rag_prompt.format_messages(field=field, context=context)
-
-    response = await llm.ainvoke(messages)
-    output_field = field.copy()
-    parsed_response = parse_llm_response(response.content)
-    output_field["value"] = parsed_response["value"]
-    output_field["docId"] = parsed_response["docId"]
-    output_field["lastProcessed"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    return output_field
-
-
-def checkbox_field_processor(field: Dict, context: str) -> Dict:
+    Process a text field using the LLM.
     """
-    Process a checkbox field
-    """
-    # TODO: Implement checkbox field processor
-    output_field = field.copy()
-    return output_field
+    try:
+        # Extract information from context
+        prompt = f"""Extract the {field['label']} from the following context. 
+        If the information is not available, return an empty string.
+        Context: {context}"""
+        
+        response = await get_llm().ainvoke(prompt)
+        value = response.content.strip()
+        
+        return {
+            "output_fields": [{
+                "label": field["label"],
+                "type": field["type"],
+                "value": format_pdf_value(value, field["type"]),
+                "options": field.get("options", [])
+            }]
+        }
+    except Exception as e:
+        return {
+            "output_fields": [{
+                "label": field["label"],
+                "type": field["type"],
+                "value": "",
+                "options": field.get("options", [])
+            }]
+        }
 
+async def checkbox_field_processor(field: Dict, context: str) -> Dict:
+    """
+    Process a checkbox field using the LLM.
+    """
+    try:
+        # Extract information from context
+        prompt = f"""Determine if the {field['label']} should be checked based on the following context.
+        Return a list of "/Yes" or "/Off" values for each checkbox in the group.
+        Context: {context}"""
+        
+        response = await get_llm().ainvoke(prompt)
+        value = response.content.strip()
+        
+        # Parse the response into a list of values
+        values = [v.strip() for v in value.split(",")]
+        values = [v if v in ["/Yes", "/Off"] else "/Off" for v in values]
+        
+        return {
+            "output_fields": [{
+                "label": field["label"],
+                "type": field["type"],
+                "value": format_pdf_value(values, field["type"]),
+                "options": field.get("options", [])
+            }]
+        }
+    except Exception as e:
+        return {
+            "output_fields": [{
+                "label": field["label"],
+                "type": field["type"],
+                "value": ["/Off"] * len(field.get("options", [])),
+                "options": field.get("options", [])
+            }]
+        }
 
-def dropdown_field_processor(field: Dict, context: str) -> Dict:
+async def dropdown_field_processor(field: Dict, context: str) -> Dict:
     """
-    Process a dropdown field
+    Process a dropdown field using the LLM.
     """
-    # TODO: Implement checkbox field processor
-    output_field = field.copy()
-    return output_field
+    try:
+        # Extract information from context
+        prompt = f"""Select the most appropriate option for {field['label']} from the following options: {field['options']}
+        Based on the context: {context}
+        Return only the selected option."""
+        
+        response = await get_llm().ainvoke(prompt)
+        value = response.content.strip()
+        
+        # Validate the response is in the options list
+        if value not in field["options"]:
+            value = field["options"][0]
+        
+        return {
+            "output_fields": [{
+                "label": field["label"],
+                "type": field["type"],
+                "value": format_pdf_value(value, field["type"], field["options"]),
+                "options": field["options"]
+            }]
+        }
+    except Exception as e:
+        return {
+            "output_fields": [{
+                "label": field["label"],
+                "type": field["type"],
+                "value": field["options"][0] if field["options"] else "",
+                "options": field["options"]
+            }]
+        }
+
+async def list_box_field_processor(field: Dict, context: str) -> Dict:
+    """
+    Process a list box field using the LLM.
+    """
+    try:
+        # Extract information from context
+        prompt = f"""Select all applicable options for {field['label']} from the following options: {field['options']}
+        Based on the context: {context}
+        Return a comma-separated list of selected options."""
+        
+        response = await get_llm().ainvoke(prompt)
+        values = [v.strip() for v in response.content.split(",")]
+        
+        # Filter out invalid selections
+        values = [v for v in values if v in field["options"]]
+        
+        return {
+            "output_fields": [{
+                "label": field["label"],
+                "type": field["type"],
+                "value": format_pdf_value(values, field["type"], field["options"]),
+                "options": field["options"]
+            }]
+        }
+    except Exception as e:
+        return {
+            "output_fields": [{
+                "label": field["label"],
+                "type": field["type"],
+                "value": [],
+                "options": field["options"]
+            }]
+        }
 
 def create_form_checkpoint(state: AgentState) -> Dict:
     """

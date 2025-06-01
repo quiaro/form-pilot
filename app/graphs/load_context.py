@@ -9,7 +9,8 @@ from langchain_community.document_loaders.word_document import UnstructuredWordD
 import PyPDF2
 
 system_message = SystemMessage(
-    content="""You are a helpful assistant that provides random information about a topic."""
+    content="""You are a precise document processing assistant that extracts and structures information from documents.
+    You carefully analyze the content and maintain the original meaning and context."""
 )
 
 # Define the state schema
@@ -31,17 +32,35 @@ async def context_manager(state: AgentState) -> Dict:
     """
     docs_filepaths = state["docs_filepaths"]
     docs_data = []
+    
+    print(f"\nLoading {len(docs_filepaths)} documents...")
+    
     for filepath in docs_filepaths:
-
-        # TODO: Add support for other file types
+        print(f"\nProcessing document: {filepath}")
         try:
             if filepath.endswith(".docx"):
+                print("Loading Word document...")
                 doc_data = document_loader_word_document(filepath)
+            elif filepath.endswith(".pdf"):
+                print("Loading PDF document...")
+                doc_data = document_loader_pdf(filepath)
+            elif filepath.endswith(".txt"):
+                print("Loading text document...")
+                doc_data = document_loader_text(filepath)
+            else:
+                print(f"Warning: Unsupported file type: {filepath}")
+                continue
+                
+            if doc_data and doc_data.get("content"):
+                print(f"Successfully loaded document. Content length: {len(doc_data['content'])} characters")
+                print("First 200 characters of content:")
+                print(doc_data['content'][:200] + "...")
                 docs_data.append(doc_data)
             else:
-                raise ValueError(f"Unsupported file type: {filepath}")
+                print(f"Warning: No content extracted from {filepath}")
+                
         except Exception as e:
-            # Add error information to docs_data
+            print(f"Error loading document {filepath}: {str(e)}")
             docs_data.append({
                 "docId": filepath + "__" + datetime.now().strftime("%Y%m%d%H%M%S"),
                 "docType": "error",
@@ -49,11 +68,14 @@ async def context_manager(state: AgentState) -> Dict:
                 "content": f"Error loading document: {str(e)}"
             })
 
+    if not docs_data:
+        raise ValueError("No valid documents were loaded")
+
     total_length = sum(len(doc["content"]) for doc in docs_data)
-    # Assuming the max context length is 128k, we'll only use 40% of that 
-    # (~51,200 tokens ... ~204,800 characters) for the supporting documents
+    print(f"\nTotal content length across all documents: {total_length} characters")
+    
     if total_length > 204800:
-        raise ValueError("Max support documents exceeded")
+        print(f"Warning: Total document length ({total_length}) exceeds recommended limit (204800)")
     
     return {"docs_data": docs_data}
 
@@ -78,6 +100,49 @@ def document_loader_word_document(filepath: str) -> str:
         "dateCreated": date_created,  
         "content": content
     }
+
+def document_loader_pdf(filepath: str) -> Dict:
+    """
+    Load a PDF document into a doc dictionary
+    """
+    doc_id = filepath + "__" + datetime.now().strftime("%Y%m%d%H%M%S")
+    date_created = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    try:
+        with open(filepath, "rb") as f:
+            reader = PyPDF2.PdfReader(f)
+            content = ""
+            for page in reader.pages:
+                content += page.extract_text() + "\n"
+                
+        return {
+            "docId": doc_id,
+            "docType": "pdf",
+            "dateCreated": date_created,
+            "content": content.strip()
+        }
+    except Exception as e:
+        raise Exception(f"Error loading PDF: {str(e)}")
+
+def document_loader_text(filepath: str) -> Dict:
+    """
+    Load a text file into a doc dictionary
+    """
+    doc_id = filepath + "__" + datetime.now().strftime("%Y%m%d%H%M%S")
+    date_created = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            content = f.read()
+            
+        return {
+            "docId": doc_id,
+            "docType": "text",
+            "dateCreated": date_created,
+            "content": content.strip()
+        }
+    except Exception as e:
+        raise Exception(f"Error loading text file: {str(e)}")
 
 # Build the graph
 def build_graph() -> StateGraph:
