@@ -89,5 +89,7 @@ def build_graph() -> StateGraph:
     
     # Add nodes
     workflow.add_node("field_surveyor", field_surveyor)    
-    workflow.set_entry_point("field_surveyor")    
-    return workflow.compile()
+    workflow.set_entry_point("field_surveyor")
+    # TODO: Add a node to ask the user the generated question
+    # TODO: After the user answers the question, join with the judge_answer graph. The resulting graph will be used by the `fill_form_fields` graph.    
+    return workflow.compile() 
