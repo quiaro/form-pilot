@@ -130,7 +130,10 @@ curl -X POST http://localhost:7861/api/judge_answer -H "Content-Type: applicatio
 2. Complete the implementation of the `complete_form_field` graph
 3. Test `manage_form_completion`
 4. Synthesize graphs
-5. Make the application more robust by completing other TODOs
-6. Error handling for thrown errors
-7. Give AgentStates in graphs more descriptive names and clean up code
-8. Write brief summary of the app's features i.e. add Features section in README.md
+5. Persist completed PDF form to disk
+6. Add ability to preview PDF form
+7. Add ability to download PDF form
+8. Make the application more robust by completing other TODOs
+9. Error handling for thrown errors
+10. Give AgentStates in graphs more descriptive names and clean up code
+11. Write brief summary of the app's features i.e. add Features section in README.md
