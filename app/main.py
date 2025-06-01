@@ -16,6 +16,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 from app.graphs.form_pilot import build_graph as build_form_pilot_graph, create_agent_state as form_pilot_create_agent_state
 from app.graphs.load_context import build_graph as build_load_context_graph, create_agent_state as load_context_create_agent_state
 from app.graphs.pre_fill_form import build_graph as build_pre_fill_form_graph, create_agent_state as pre_fill_form_create_agent_state
+from app.graphs.generate_question import build_graph as build_generate_question_graph, create_agent_state as generate_question_create_agent_state
 from datetime import datetime
 from pydantic import BaseModel
 
@@ -23,6 +24,7 @@ from pydantic import BaseModel
 form_pilot_graph = build_form_pilot_graph()
 load_context_graph = build_load_context_graph()
 pre_fill_form_graph = build_pre_fill_form_graph()
+generate_question_graph = build_generate_question_graph()
 app = FastAPI(title="Form Pilot")
 
 # Add CORS middleware
@@ -96,6 +98,22 @@ async def pre_fill_form(request: PreFillFormRequest):
     state = pre_fill_form_create_agent_state(form_data=form_data, docs_data=docs_data)
     output = await pre_fill_form_graph.ainvoke(state)
     return output["filled_form"]
+
+class GenerateQuestionRequest(BaseModel):
+    form_data: Dict
+    unanswered_field: Dict
+
+@app.post("/api/generate_question")
+async def generate_question(request: GenerateQuestionRequest):
+    """
+    Generate a question for a form field.
+    """
+    form_fields = request.form_data["fields"]
+    form_field = request.unanswered_field
+
+    state = generate_question_create_agent_state(form_fields=form_fields, unanswered_field=form_field)
+    output = await generate_question_graph.ainvoke(state)
+    return output["question"]
 
 
 @app.get("/api/categories")
