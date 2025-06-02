@@ -7,6 +7,6 @@
 __pycache__
 /app/docs/context/
 /app/docs/checkpoints/
+/uploaded_docs/
 
 node_modules
-.vscode
