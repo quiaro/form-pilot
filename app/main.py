@@ -32,8 +32,8 @@ if "support_doc_paths" not in st.session_state:
     st.session_state.support_doc_paths = []
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
-if "filled_form" not in st.session_state:
-    st.session_state.filled_form = None
+if "prefilled_form" not in st.session_state:
+    st.session_state.prefilled_form = None
 
 # ---------- Sidebar: File Uploads ----------
 with st.sidebar:
@@ -66,7 +66,7 @@ with st.sidebar:
 
     if st.session_state.main_form_path and st.session_state.support_doc_paths:
         if st.button("🔄 Start Over"):
-            for key in ["main_form_path", "support_doc_paths", "chat_history", "filled_form"]:
+            for key in ["main_form_path", "support_doc_paths", "chat_history", "prefilled_form"]:
                 st.session_state[key] = None if "path" in key else []
             st.rerun()
 
@@ -84,7 +84,7 @@ if st.session_state.main_form_path and st.session_state.support_doc_paths:
                 docs_data = asyncio.run(context_loader(st.session_state.support_doc_paths))
 
                 # Step 3: Pre-fill form using AI (async)
-                st.session_state.filled_form = asyncio.run(prefill_in_memory_form(parsed_form, docs_data))
+                st.session_state.prefilled_form = asyncio.run(prefill_in_memory_form(parsed_form, docs_data))
 
                 st.success("✅ Form filled successfully!")
 
@@ -92,9 +92,9 @@ if st.session_state.main_form_path and st.session_state.support_doc_paths:
                 st.error(f"❌ Error running assistant: {str(e)}")
 
 # ---------- Display Filled Form ----------
-if st.session_state.filled_form:
+if st.session_state.prefilled_form:
     st.subheader("📄 Filled Form Preview")
-    for field in st.session_state.filled_form["fields"]:
+    for field in st.session_state.prefilled_form["fields"]:
         label = field.get("label", "Unnamed Field")
         value = field.get("value", "")
         st.markdown(f"**{label}:** {value if value else '*Not Filled*'}")
@@ -104,9 +104,9 @@ if st.session_state.filled_form:
     
     with col1:
         # JSON download
-        json_str = json.dumps(st.session_state.filled_form, indent=2)
+        json_str = json.dumps(st.session_state.prefilled_form, indent=2)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        json_filename = f"filled_form_{timestamp}.json"
+        json_filename = f"prefilled_form_{timestamp}.json"
         
         st.download_button(
             label="📥 Download as JSON",
@@ -119,8 +119,8 @@ if st.session_state.filled_form:
     with col2:
         # PDF download
         try:
-            filled_pdf_bytes = fill_pdf_form(st.session_state.main_form_path, st.session_state.filled_form)
-            pdf_filename = f"filled_form_{timestamp}.pdf"
+            filled_pdf_bytes = fill_pdf_form(st.session_state.main_form_path, st.session_state.prefilled_form)
+            pdf_filename = f"prefilled_form_{timestamp}.pdf"
             
             st.download_button(
                 label="📄 Download as PDF",
@@ -133,7 +133,7 @@ if st.session_state.filled_form:
             st.error(f"❌ Error generating PDF: {str(e)}")
 
 # ---------- User Q&A Chat (Optional for follow-up) ----------
-if st.session_state.filled_form and st.session_state.support_doc_paths:
+if st.session_state.prefilled_form and st.session_state.support_doc_paths:
     user_question = st.text_input("Ask a follow-up question:", key="user_question")
     if st.button("Submit"):
         if user_question.strip():
