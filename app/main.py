@@ -71,10 +71,10 @@ with st.sidebar:
             st.rerun()
 
 # ---------- Main Section: Assistant Chat ----------
-st.title("🧠 Form Assistant Chat")
+st.title("🧑‍🚀 Form Pilot", anchor=False)
 
 if st.session_state.main_form_path and st.session_state.support_doc_paths:
-    if st.button("🚀 Run AI Assistant"):
+    if st.button("🚀 Prefill Form"):
         with st.spinner("⏳ Processing form and documents..."):
             try:
                 # Step 1: Parse the main form
@@ -86,51 +86,32 @@ if st.session_state.main_form_path and st.session_state.support_doc_paths:
                 # Step 3: Pre-fill form using AI (async)
                 st.session_state.prefilled_form = asyncio.run(prefill_in_memory_form(parsed_form, docs_data))
 
-                st.success("✅ Form filled successfully!")
+                # Add download buttons for both JSON and PDF formats
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.success("✅ Form filled successfully!")
+
+                with col2:
+                    # PDF download
+                    try:
+                        filled_pdf_bytes = fill_pdf_form(st.session_state.main_form_path, st.session_state.prefilled_form)
+                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        pdf_filename = f"form_{timestamp}.pdf"
+                        
+                        st.download_button(
+                            label="📄 Download Prefilled PDF",
+                            data=filled_pdf_bytes,
+                            file_name=pdf_filename,
+                            mime="application/pdf",
+                            help="Download the filled form in PDF format"
+                        )
+                    except Exception as e:
+                        st.error(f"❌ Error generating PDF: {str(e)}")
 
             except Exception as e:
                 st.error(f"❌ Error running assistant: {str(e)}")
 
-# ---------- Display Filled Form ----------
-if st.session_state.prefilled_form:
-    st.subheader("📄 Filled Form Preview")
-    for field in st.session_state.prefilled_form["fields"]:
-        label = field.get("label", "Unnamed Field")
-        value = field.get("value", "")
-        st.markdown(f"**{label}:** {value if value else '*Not Filled*'}")
-    
-    # Add download buttons for both JSON and PDF formats
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # JSON download
-        json_str = json.dumps(st.session_state.prefilled_form, indent=2)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        json_filename = f"prefilled_form_{timestamp}.json"
-        
-        st.download_button(
-            label="📥 Download as JSON",
-            data=json_str,
-            file_name=json_filename,
-            mime="application/json",
-            help="Download the filled form data in JSON format"
-        )
-    
-    with col2:
-        # PDF download
-        try:
-            filled_pdf_bytes = fill_pdf_form(st.session_state.main_form_path, st.session_state.prefilled_form)
-            pdf_filename = f"prefilled_form_{timestamp}.pdf"
-            
-            st.download_button(
-                label="📄 Download as PDF",
-                data=filled_pdf_bytes,
-                file_name=pdf_filename,
-                mime="application/pdf",
-                help="Download the filled form in PDF format"
-            )
-        except Exception as e:
-            st.error(f"❌ Error generating PDF: {str(e)}")
 
 # ---------- User Q&A Chat (Optional for follow-up) ----------
 if st.session_state.prefilled_form and st.session_state.support_doc_paths:
