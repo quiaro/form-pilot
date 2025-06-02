@@ -5,6 +5,7 @@ from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 from datetime import datetime
 from app.models import SupportDoc
+from app.utils.llm import get_llm
 
 def doc_data_to_string(doc_data: Dict) -> str:
     """
@@ -45,10 +46,7 @@ async def text_field_processor(field: Dict, context: str) -> Dict:
     """
     Uses an LLM to find the answer to the field using the context data. If the context data is not enough for filling the field, leave the field empty.
     """
-    llm = ChatOllama(
-        model=os.getenv("PREFILL_LLM", "gemma3:4b"),
-        temperature=0.0
-    )
+    llm = get_llm("PREFILL_LLM")
 
     PROMPT = """
         You are a helpful assistant whose task is to answer a field in a form to the best of your ability.
