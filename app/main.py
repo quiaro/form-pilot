@@ -10,9 +10,9 @@ import io
 # Add /app/graphs to Python path so we can import modules
 # sys.path.append(os.path.join(os.path.dirname(__file__), "graphs"))
 
-from app.graphs.pre_fill_form import create_agent_state as create_prefill_state, build_graph as build_prefill_graph
 from app.doc_handlers.pdf import parse_pdf_form, fill_pdf_form
 from app.context.loader import context_loader
+from app.form.prefill import prefill_in_memory_form
 
 # ---------- Streamlit Page Configuration ----------
 st.set_page_config(page_title="AI Document Assistant", layout="wide")
@@ -84,11 +84,8 @@ if st.session_state.main_form_path and st.session_state.support_doc_paths:
                 docs_data = asyncio.run(context_loader(st.session_state.support_doc_paths))
 
                 # Step 3: Pre-fill form using AI (async)
-                prefill_graph = build_prefill_graph()
-                agent_input = create_prefill_state(form_data=parsed_form, docs_data=docs_data)
-                result = asyncio.run(prefill_graph.ainvoke(agent_input))
+                st.session_state.filled_form = asyncio.run(prefill_in_memory_form(parsed_form, docs_data))
 
-                st.session_state.filled_form = result["filled_form"]
                 st.success("✅ Form filled successfully!")
 
             except Exception as e:
