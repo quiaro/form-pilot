@@ -125,23 +125,6 @@ def parse_llm_response(response):
     except json.JSONDecodeError as e:
         raise ValueError(f"Failed to parse JSON response: {e}")
 
-def format_pdf_value(value: Any, field_type: str, options: List[str] = None) -> Any:
-    """
-    Format a value according to PDF requirements.
-    """
-    if field_type == "checkbox_group":
-        # For checkboxes, ensure we have a list of "/Yes" or "/Off" values
-        if isinstance(value, list):
-            return [str(v) if v in ["/Yes", "/Off"] else "/Off" for v in value]
-        return ["/Off"]
-    elif field_type == "dropdown" or field_type == "list_box":
-        # For dropdowns and list boxes, ensure the value is in the options list
-        if options and value not in options:
-            return options[0] if field_type == "dropdown" else []
-        return value
-    else:
-        # For text fields, convert to string
-        return str(value) if value is not None else ""
 
 def get_llm():
     """
@@ -181,98 +164,6 @@ async def text_field_processor(field: Dict, context: str) -> Dict:
             "type": field["type"],
             "value": "",
             "options": field.get("options", [])
-        }
-
-async def checkbox_field_processor(field: Dict, context: str) -> Dict:
-    """
-    Process a checkbox field using the LLM.
-    """
-    try:
-        # Extract information from context
-        prompt = f"""Determine if the {field['label']} should be checked based on the following context.
-        Return a list of "/Yes" or "/Off" values for each checkbox in the group.
-        Context: {context}"""
-        
-        response = await get_llm().ainvoke(prompt)
-        value = response.content.strip()
-        
-        # Parse the response into a list of values
-        values = [v.strip() for v in value.split(",")]
-        values = [v if v in ["/Yes", "/Off"] else "/Off" for v in values]
-        
-        return {
-            "label": field["label"],
-            "type": field["type"],
-            "value": format_pdf_value(values, field["type"]),
-            "options": field.get("options", [])
-        }
-    except Exception as e:
-        return {
-            "label": field["label"],
-            "type": field["type"],
-            "value": ["/Off"] * len(field.get("options", [])),
-            "options": field.get("options", [])
-        }
-
-async def dropdown_field_processor(field: Dict, context: str) -> Dict:
-    """
-    Process a dropdown field using the LLM.
-    """
-    try:
-        # Extract information from context
-        prompt = f"""Select the most appropriate option for {field['label']} from the following options: {field['options']}
-        Based on the context: {context}
-        Return only the selected option."""
-        
-        response = await get_llm().ainvoke(prompt)
-        value = response.content.strip()
-        
-        # Validate the response is in the options list
-        if value not in field["options"]:
-            value = field["options"][0]
-        
-        return {
-            "label": field["label"],
-            "type": field["type"],
-            "value": format_pdf_value(value, field["type"], field["options"]),
-            "options": field["options"]
-        }
-    except Exception as e:
-        return {
-            "label": field["label"],
-            "type": field["type"],
-            "value": field["options"][0] if field["options"] else "",
-            "options": field["options"]
-        }
-
-async def list_box_field_processor(field: Dict, context: str) -> Dict:
-    """
-    Process a list box field using the LLM.
-    """
-    try:
-        # Extract information from context
-        prompt = f"""Select all applicable options for {field['label']} from the following options: {field['options']}
-        Based on the context: {context}
-        Return a comma-separated list of selected options."""
-        
-        response = await get_llm().ainvoke(prompt)
-        values = [v.strip() for v in response.content.split(",")]
-        
-        # Filter out invalid selections
-        values = [v for v in values if v in field["options"]]
-        
-        return {
-            "label": field["label"],
-            "type": field["type"],
-            "value": format_pdf_value(values, field["type"], field["options"]),
-            "options": field["options"]
-        }
-    except Exception as e:
-        return {
-            "label": field["label"],
-            "type": field["type"],
-            "value": [],
-            "options": field["options"]
         }
 
 def create_form_checkpoint(state: AgentState) -> Dict:
