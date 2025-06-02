@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Any, Dict, List
 import os
 import json
 from langchain_ollama import ChatOllama
