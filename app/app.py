@@ -12,8 +12,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "graphs"))
 
 from pre_fill_form import create_agent_state as create_prefill_state, build_graph as build_prefill_graph
 from load_context import build_graph as build_context_graph
-from form_pilot import parse_pdf_form
-from doc_handlers.pdf import fill_pdf_form
+from doc_handlers.pdf import parse_pdf_form, fill_pdf_form
 
 # ---------- Streamlit Page Configuration ----------
 st.set_page_config(page_title="AI Document Assistant", layout="wide")
@@ -79,8 +78,7 @@ if st.session_state.main_form_path and st.session_state.support_doc_paths:
         with st.spinner("⏳ Processing form and documents..."):
             try:
                 # Step 1: Parse the main form
-                form_state = {"form_filepath": st.session_state.main_form_path}
-                parsed_form = parse_pdf_form(form_state)["form_data"]
+                parsed_form = parse_pdf_form(st.session_state.main_form_path)
 
                 # Step 2: Load support documents (async)
                 context_graph = build_context_graph()
