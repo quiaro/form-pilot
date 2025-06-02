@@ -2,16 +2,24 @@ import streamlit as st
 import os
 import sys
 import asyncio
+import nest_asyncio
 from typing import List
 from datetime import datetime
 import json
 import io
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from app.chat_agent.prompts import SYSTEM_PROMPT, DEFAULT_AI_GREETING
 from app.chat_agent.graph import create_chat_graph, ChatAgentState
-
+from app.utils.setup import setup
+from app.utils.llm import clean_llm_response
 from app.doc_handlers.pdf import parse_pdf_form, fill_pdf_form
 from app.context.loader import context_loader
 from app.form.prefill import prefill_in_memory_form
+
+setup()
+
+# Patches asyncio to allow nested event loops
+nest_asyncio.apply()
 
 # ---------- Streamlit Page Configuration ----------
 st.set_page_config(page_title="AI Document Assistant", layout="wide")
@@ -116,7 +124,9 @@ if st.session_state.main_form_path and st.session_state.support_doc_paths:
 # Initialize the chat graph
 if 'chat_graph' not in st.session_state:
     st.session_state.chat_graph = create_chat_graph()
-    st.session_state.messages = []
+    st.session_state.messages = [
+        SystemMessage(content=SYSTEM_PROMPT),
+        AIMessage(content=DEFAULT_AI_GREETING)]
 
 # Chat interface
 chat_container = st.container(height=620)
@@ -127,32 +137,40 @@ chat_container = st.container(height=620)
 # Display chat message history
 with chat_container:
     for message in st.session_state.messages:
-        role = "user" if isinstance(message, HumanMessage) else "assistant"
+        if isinstance(message, SystemMessage):
+            continue
+        if isinstance(message, AIMessage):
+            role = "assistant"
+            content = clean_llm_response(message.content)
+        else:
+            role = "user"
+            content = message.content
         with st.chat_message(role):
-            st.write(message.content)
+            st.write(content)
 
 # Chat input
 if prompt := st.chat_input("Type your message here..."):
     # Add user message to session state
     user_message = HumanMessage(content=prompt)
     st.session_state.messages.append(user_message)
-    
-    # # Display user message immediately
-    with st.chat_message("user"):
-        st.write(prompt)
+
+    # Display user message in chat history immediately
+    with chat_container:
+        with st.chat_message("user"):
+            st.write(prompt)
     
     # Create agent state
     state = ChatAgentState(messages=st.session_state.messages)
     
     # Process with the graph
     with st.chat_message("assistant"):
-        # with st.spinner("Thinking..."):
-        result = st.session_state.chat_graph.invoke(state)
-        
-        # Get the assistant's response
-        assistant_message = result["messages"][-1]
-        st.write(assistant_message.content)
-        
-        # Update session state
-        st.session_state.messages = result["messages"]
-        st.rerun()
+        with st.spinner("Thinking..."):
+            try:
+                # With nest_asyncio, this should work even in nested loops
+                result = asyncio.run(st.session_state.chat_graph.ainvoke(state))
+            except Exception as e:
+                st.error(f"Error processing request: {e}")
+            
+            # Update session state
+            st.session_state.messages = result["messages"]
+            st.rerun()
