@@ -65,7 +65,7 @@ To see/change the models used, edit the `.env` file.
 
 2. Run the app on http://0.0.0.0:7860/
    ```
-   streamlit run app/app.py
+   streamlit run app/main.py
    ```
 
 > If you wish to change any settings to the frontend of the app, edit `config.toml` in the `.streamlit` folder. Follow the [Streamlit configuration instructions](https://docs.streamlit.io/develop/api-reference/configuration).
@@ -93,7 +93,7 @@ To see/change the models used, edit the `.env` file.
 A test server can be run to test specific aspects of the backend code:
 
 ```
-python -m app.main
+python -m app.endpoints
 ```
 
 - Test parsing of the PDF form

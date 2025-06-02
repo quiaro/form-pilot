@@ -25,7 +25,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "streamlit",
-      "args": ["run", "app/app.py"],
+      "args": ["run", "app/main.py"],
       "jinja": false,
       "envFile": "${workspaceFolder}/.env"
     }

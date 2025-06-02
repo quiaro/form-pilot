@@ -1,134 +1,152 @@
+import streamlit as st
 import os
-from app.utils.setup import setup
-
-# Call setup to initialize environment
-setup()
-
-from typing import Dict, List, Optional
-from fastapi import FastAPI, HTTPException, Path
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+import sys
 import asyncio
-import markdown
-from langchain_core.messages import HumanMessage, AIMessage
-from app.graphs.form_pilot import build_graph as build_form_pilot_graph, create_agent_state as form_pilot_create_agent_state
-from app.graphs.load_context import build_graph as build_load_context_graph, create_agent_state as load_context_create_agent_state
-from app.graphs.pre_fill_form import build_graph as build_pre_fill_form_graph, create_agent_state as pre_fill_form_create_agent_state
-from app.graphs.complete_form_field import build_graph as build_complete_form_field_graph, create_agent_state as complete_form_field_create_agent_state
-from app.graphs.judge_answer import build_graph as build_judge_answer_graph, create_agent_state as judge_answer_create_agent_state
+from typing import List
 from datetime import datetime
-from pydantic import BaseModel
+import json
+import io
 
+# Add /app/graphs to Python path so we can import modules
+# sys.path.append(os.path.join(os.path.dirname(__file__), "graphs"))
 
-form_pilot_graph = build_form_pilot_graph()
-load_context_graph = build_load_context_graph()
-pre_fill_form_graph = build_pre_fill_form_graph()
-complete_form_field_graph = build_complete_form_field_graph()
-judge_answer_graph = build_judge_answer_graph()
-app = FastAPI(title="Form Pilot")
+from app.graphs.pre_fill_form import create_agent_state as create_prefill_state, build_graph as build_prefill_graph
+from app.doc_handlers.pdf import parse_pdf_form, fill_pdf_form
+from app.context.loader import context_loader
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # In production, restrict this to the frontend domain
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# ---------- Streamlit Page Configuration ----------
+st.set_page_config(page_title="AI Document Assistant", layout="wide")
 
-class ParsePDFFormRequest(BaseModel):
-    pdf_file: str
+# ---------- Helper: Save Uploaded Files ----------
+def save_uploaded_file(uploaded_file, folder="uploaded_docs"):
+    os.makedirs(folder, exist_ok=True)
+    filepath = os.path.join(folder, uploaded_file.name)
+    with open(filepath, "wb") as f:
+        f.write(uploaded_file.read())
+    return filepath
 
-@app.post("/api/parse_pdf_form")
-async def parse_pdf_form(request: ParsePDFFormRequest):
-    """
-    Parse a PDF form given its file path.
-    """
-    # Get the form filepath from the request
-    form_filepath = request.pdf_file
+# ---------- Session State ----------
+if "main_form_path" not in st.session_state:
+    st.session_state.main_form_path = None
+if "support_doc_paths" not in st.session_state:
+    st.session_state.support_doc_paths = []
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+if "filled_form" not in st.session_state:
+    st.session_state.filled_form = None
 
-    state = form_pilot_create_agent_state(form_filepath=form_filepath)
-    output = await form_pilot_graph.ainvoke(state)
-    return output["form_data"]
+# ---------- Sidebar: File Uploads ----------
+with st.sidebar:
+    st.title("📂 Document Panel")
 
+    st.subheader("1️⃣ Upload Main Form")
+    main_form = st.file_uploader(
+        "Upload the main document (PDF, DOCX, TXT, or Image)",
+        type=["pdf", "docx", "txt", "png", "jpg", "jpeg"],
+        key="main_form_uploader"
+    )
+    if main_form:
+        st.session_state.main_form_path = save_uploaded_file(main_form)
+        st.markdown(f"**✅ Uploaded:** `{main_form.name}`")
 
-class LoadContextRequest(BaseModel):
-    document_filepaths: List[str]
+    st.divider()
 
-@app.post("/api/load_context")
-async def load_context(request: LoadContextRequest):
-    """
-    Load context from a list of document file paths.
-    """
-    # Get the form filepath from the request
-    docs_filepaths = request.document_filepaths
+    st.subheader("2️⃣ Upload Support Documents")
+    support_docs = st.file_uploader(
+        "Upload one or more support documents (PDF, DOCX, TXT, or Images)",
+        type=["pdf", "docx", "txt", "png", "jpg", "jpeg"],
+        accept_multiple_files=True,
+        key="support_docs_uploader"
+    )
+    if support_docs:
+        st.session_state.support_doc_paths = [save_uploaded_file(doc) for doc in support_docs]
+        st.markdown("**📎 Support documents uploaded:**")
+        for idx, doc in enumerate(support_docs, 1):
+            st.markdown(f"{idx}. `{doc.name}`")
 
-    state = load_context_create_agent_state(docs_filepaths=docs_filepaths)
-    output = await load_context_graph.ainvoke(state)
-    return output["docs_data"]
+    if st.session_state.main_form_path and st.session_state.support_doc_paths:
+        if st.button("🔄 Start Over"):
+            for key in ["main_form_path", "support_doc_paths", "chat_history", "filled_form"]:
+                st.session_state[key] = None if "path" in key else []
+            st.rerun()
 
+# ---------- Main Section: Assistant Chat ----------
+st.title("🧠 Form Assistant Chat")
 
-class PreFillFormRequest(BaseModel):
-    form_data: Dict
-    docs_data: List[Dict]
+if st.session_state.main_form_path and st.session_state.support_doc_paths:
+    if st.button("🚀 Run AI Assistant"):
+        with st.spinner("⏳ Processing form and documents..."):
+            try:
+                # Step 1: Parse the main form
+                parsed_form = parse_pdf_form(st.session_state.main_form_path)
 
-@app.post("/api/pre_fill_form")
-async def pre_fill_form(request: PreFillFormRequest):
-    """
-    Pre-fill a form with context from a list of document file paths.
-    """
-    # Get the form filepath from the request
-    form_data = request.form_data
-    docs_data = request.docs_data
+                # Step 2: Load support documents (async)
+                docs_data = asyncio.run(context_loader(st.session_state.support_doc_paths))
 
-    state = pre_fill_form_create_agent_state(form_data=form_data, docs_data=docs_data)
-    output = await pre_fill_form_graph.ainvoke(state)
-    return output["filled_form"]
+                # Step 3: Pre-fill form using AI (async)
+                prefill_graph = build_prefill_graph()
+                agent_input = create_prefill_state(form_data=parsed_form, docs_data=docs_data)
+                result = asyncio.run(prefill_graph.ainvoke(agent_input))
 
-class GenerateQuestionRequest(BaseModel):
-    form_data: Dict
-    unanswered_field: Dict
+                st.session_state.filled_form = result["filled_form"]
+                st.success("✅ Form filled successfully!")
 
-@app.post("/api/complete_form_field")
-async def complete_form_field(request: GenerateQuestionRequest):
-    """
-    Generate a question for a form field.
-    """
-    form_fields = request.form_data["fields"]
-    form_field = request.unanswered_field
+            except Exception as e:
+                st.error(f"❌ Error running assistant: {str(e)}")
 
-    state = complete_form_field_create_agent_state(form_fields=form_fields, unanswered_field=form_field)
-    output = await complete_form_field_graph.ainvoke(state)
-    return output["question"]
-
-class JudgeAnswerRequest(BaseModel):
-    form_data: Dict
-    unanswered_field: Dict
-    answer: str
-
-@app.post("/api/judge_answer")
-async def judge_answer(request: JudgeAnswerRequest):
-    """
-    Generate a question for a form field.
-    """
-    form_fields = request.form_data["fields"]
-    unanswered_field = request.unanswered_field
-    answer = request.answer
-
-    state = judge_answer_create_agent_state(form_fields=form_fields, unanswered_field=unanswered_field, answer=answer)
-    output = await judge_answer_graph.ainvoke(state)
-    return output["answered_field"]
-
-if __name__ == "__main__":
-    import uvicorn
-    # Get host and port from environment variables or use defaults
-    host = os.getenv("API_TEST_HOST", "0.0.0.0")
-    port = int(os.getenv("API_TEST_PORT", "8000"))
-    env = os.getenv("ENV", "development")
+# ---------- Display Filled Form ----------
+if st.session_state.filled_form:
+    st.subheader("📄 Filled Form Preview")
+    for field in st.session_state.filled_form["fields"]:
+        label = field.get("label", "Unnamed Field")
+        value = field.get("value", "")
+        st.markdown(f"**{label}:** {value if value else '*Not Filled*'}")
     
-    # Only enable auto-reload in development
-    reload = env.lower() == "development"
+    # Add download buttons for both JSON and PDF formats
+    col1, col2 = st.columns(2)
     
-    uvicorn.run("app.main:app", host=host, port=port, reload=reload) 
+    with col1:
+        # JSON download
+        json_str = json.dumps(st.session_state.filled_form, indent=2)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        json_filename = f"filled_form_{timestamp}.json"
+        
+        st.download_button(
+            label="📥 Download as JSON",
+            data=json_str,
+            file_name=json_filename,
+            mime="application/json",
+            help="Download the filled form data in JSON format"
+        )
+    
+    with col2:
+        # PDF download
+        try:
+            filled_pdf_bytes = fill_pdf_form(st.session_state.main_form_path, st.session_state.filled_form)
+            pdf_filename = f"filled_form_{timestamp}.pdf"
+            
+            st.download_button(
+                label="📄 Download as PDF",
+                data=filled_pdf_bytes,
+                file_name=pdf_filename,
+                mime="application/pdf",
+                help="Download the filled form in PDF format"
+            )
+        except Exception as e:
+            st.error(f"❌ Error generating PDF: {str(e)}")
+
+# ---------- User Q&A Chat (Optional for follow-up) ----------
+if st.session_state.filled_form and st.session_state.support_doc_paths:
+    user_question = st.text_input("Ask a follow-up question:", key="user_question")
+    if st.button("Submit"):
+        if user_question.strip():
+            st.session_state.chat_history.append(("user", user_question))
+            # Replace with real follow-up logic if needed
+            st.session_state.chat_history.append(("assistant", "🤖 (This is a placeholder response.)"))
+        else:
+            st.warning("Please enter a question before submitting.")
+
+    for role, msg in st.session_state.chat_history:
+        st.markdown(f"**{role.capitalize()}:** {msg}")
+else:
+    st.info("👈 Please upload the required documents and run the assistant to begin.")
