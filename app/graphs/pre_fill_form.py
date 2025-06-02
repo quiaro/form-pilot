@@ -1,4 +1,4 @@
-from typing import Dict, List, TypedDict, Annotated, Union
+from typing import Dict, List, TypedDict, Annotated, Union, Any
 import os
 import json
 from langchain_openai import ChatOpenAI
@@ -170,21 +170,17 @@ async def text_field_processor(field: Dict, context: str) -> Dict:
         value = response.content.strip()
         
         return {
-            "output_fields": [{
-                "label": field["label"],
-                "type": field["type"],
-                "value": format_pdf_value(value, field["type"]),
-                "options": field.get("options", [])
-            }]
+            "label": field["label"],
+            "type": field["type"],
+            "value": format_pdf_value(value, field["type"]),
+            "options": field.get("options", [])
         }
     except Exception as e:
         return {
-            "output_fields": [{
-                "label": field["label"],
-                "type": field["type"],
-                "value": "",
-                "options": field.get("options", [])
-            }]
+            "label": field["label"],
+            "type": field["type"],
+            "value": "",
+            "options": field.get("options", [])
         }
 
 async def checkbox_field_processor(field: Dict, context: str) -> Dict:
@@ -205,21 +201,17 @@ async def checkbox_field_processor(field: Dict, context: str) -> Dict:
         values = [v if v in ["/Yes", "/Off"] else "/Off" for v in values]
         
         return {
-            "output_fields": [{
-                "label": field["label"],
-                "type": field["type"],
-                "value": format_pdf_value(values, field["type"]),
-                "options": field.get("options", [])
-            }]
+            "label": field["label"],
+            "type": field["type"],
+            "value": format_pdf_value(values, field["type"]),
+            "options": field.get("options", [])
         }
     except Exception as e:
         return {
-            "output_fields": [{
-                "label": field["label"],
-                "type": field["type"],
-                "value": ["/Off"] * len(field.get("options", [])),
-                "options": field.get("options", [])
-            }]
+            "label": field["label"],
+            "type": field["type"],
+            "value": ["/Off"] * len(field.get("options", [])),
+            "options": field.get("options", [])
         }
 
 async def dropdown_field_processor(field: Dict, context: str) -> Dict:
@@ -240,21 +232,17 @@ async def dropdown_field_processor(field: Dict, context: str) -> Dict:
             value = field["options"][0]
         
         return {
-            "output_fields": [{
-                "label": field["label"],
-                "type": field["type"],
-                "value": format_pdf_value(value, field["type"], field["options"]),
-                "options": field["options"]
-            }]
+            "label": field["label"],
+            "type": field["type"],
+            "value": format_pdf_value(value, field["type"], field["options"]),
+            "options": field["options"]
         }
     except Exception as e:
         return {
-            "output_fields": [{
-                "label": field["label"],
-                "type": field["type"],
-                "value": field["options"][0] if field["options"] else "",
-                "options": field["options"]
-            }]
+            "label": field["label"],
+            "type": field["type"],
+            "value": field["options"][0] if field["options"] else "",
+            "options": field["options"]
         }
 
 async def list_box_field_processor(field: Dict, context: str) -> Dict:
@@ -274,21 +262,17 @@ async def list_box_field_processor(field: Dict, context: str) -> Dict:
         values = [v for v in values if v in field["options"]]
         
         return {
-            "output_fields": [{
-                "label": field["label"],
-                "type": field["type"],
-                "value": format_pdf_value(values, field["type"], field["options"]),
-                "options": field["options"]
-            }]
+            "label": field["label"],
+            "type": field["type"],
+            "value": format_pdf_value(values, field["type"], field["options"]),
+            "options": field["options"]
         }
     except Exception as e:
         return {
-            "output_fields": [{
-                "label": field["label"],
-                "type": field["type"],
-                "value": [],
-                "options": field["options"]
-            }]
+            "label": field["label"],
+            "type": field["type"],
+            "value": [],
+            "options": field["options"]
         }
 
 def create_form_checkpoint(state: AgentState) -> Dict:
