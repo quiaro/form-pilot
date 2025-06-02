@@ -83,10 +83,10 @@ if st.session_state.main_form_path and st.session_state.support_doc_paths:
                 # Step 2: Load support documents (async)
                 docs_data = asyncio.run(context_loader(st.session_state.support_doc_paths))
 
-                # Step 3: Pre-fill form using AI (async)
+                # Step 3: Initial pre-fill form using AI (async)
                 st.session_state.prefilled_form = asyncio.run(prefill_in_memory_form(parsed_form, docs_data))
-
-                st.success("✅ Form filled successfully!")
+                st.session_state.docs_data = docs_data  # Store docs_data for later use
+                st.success("✅ Initial form fill completed!")
 
             except Exception as e:
                 st.error(f"❌ Error running assistant: {str(e)}")
@@ -94,11 +94,25 @@ if st.session_state.main_form_path and st.session_state.support_doc_paths:
 # ---------- Display Filled Form ----------
 if st.session_state.prefilled_form:
     st.subheader("📄 Filled Form Preview")
+    
+    # Display all fields
     for field in st.session_state.prefilled_form["fields"]:
         label = field.get("label", "Unnamed Field")
         value = field.get("value", "")
-        st.markdown(f"**{label}:** {value if value else '*Not Filled*'}")
-    
+        field_type = field.get("type", "")
+        
+        if field_type in ["checkbox", "checkbox_group"]:
+            if isinstance(value, list):
+                checked = [v == "/Yes" for v in value]
+                st.markdown(f"**{label}:** {'✓' if any(checked) else '✗'}")
+                if field.get("options"):
+                    for opt, is_checked in zip(field["options"], checked):
+                        st.markdown(f"  - {opt}: {'✓' if is_checked else '✗'}")
+            else:
+                st.markdown(f"**{label}:** {'✓' if value == '/Yes' else '✗'}")
+        else:
+            st.markdown(f"**{label}:** {value if value else '*Not Filled*'}")
+
     # Add download buttons for both JSON and PDF formats
     col1, col2 = st.columns(2)
     

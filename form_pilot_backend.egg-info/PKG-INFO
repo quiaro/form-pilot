@@ -1,0 +1,25 @@
+Metadata-Version: 2.4
+Name: form-pilot-backend
+Version: 0.1.0
+Summary: Backend server for trending information retrieval
+Requires-Python: >=3.11
+License-File: LICENSE
+Requires-Dist: fastapi>=0.115.12
+Requires-Dist: httpx>=0.28.1
+Requires-Dist: langchain>=0.3.25
+Requires-Dist: langchain-community>=0.3.24
+Requires-Dist: langchain-google-community>=2.0.7
+Requires-Dist: langchain-ollama>=0.3.3
+Requires-Dist: langchain-openai>=0.3.18
+Requires-Dist: langgraph>=0.4.7
+Requires-Dist: markdown>=3.8
+Requires-Dist: pypdf2>=3.0.1
+Requires-Dist: python-docx>=1.1.2
+Requires-Dist: streamlit>=1.45.1
+Requires-Dist: unstructured>=0.17.2
+Requires-Dist: uvicorn>=0.34.2
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: isort; extra == "dev"
+Dynamic: license-file
