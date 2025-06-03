@@ -4,7 +4,7 @@ import json
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 from datetime import datetime
-from app.models import SupportDoc
+from app.models import SupportDoc, FormField, DraftForm
 from app.utils.llm import get_llm
 
 def doc_data_to_string(doc_data: Dict) -> str:
@@ -40,7 +40,7 @@ def parse_llm_response(response):
     except json.JSONDecodeError as e:
         raise ValueError(f"Failed to parse JSON response: {e}")
 
-async def text_field_processor(field: Dict, context: str) -> Dict:
+async def text_field_processor(field: FormField, context: str) -> FormField:
     """
     Uses an LLM to find the answer to the field using the context data. If the context data is not enough for filling the field, leave the field empty.
     """
@@ -101,7 +101,7 @@ def format_pdf_value(value: Any, field_type: str, options: List[str] = None) -> 
         return str(value) if value is not None else ""
 
 
-async def checkbox_field_processor(field: Dict, context: str) -> Dict:
+async def checkbox_field_processor(field: FormField, context: str) -> FormField:
     """
     Process a checkbox field using the LLM.
     """
@@ -134,7 +134,7 @@ async def checkbox_field_processor(field: Dict, context: str) -> Dict:
         }
 
 
-async def dropdown_field_processor(field: Dict, context: str) -> Dict:
+async def dropdown_field_processor(field: FormField, context: str) -> FormField:
     """
     Process a dropdown field using the LLM.
     """
@@ -167,7 +167,7 @@ async def dropdown_field_processor(field: Dict, context: str) -> Dict:
         }
 
 
-async def list_box_field_processor(field: Dict, context: str) -> Dict:
+async def list_box_field_processor(field: FormField, context: str) -> FormField:
     """
     Process a list box field using the LLM.
     """
@@ -198,19 +198,19 @@ async def list_box_field_processor(field: Dict, context: str) -> Dict:
         }
 
 
-async def prefill_in_memory_form(form_data: Dict, docs_data: List[SupportDoc]) -> Dict:
+async def prefill_in_memory_form(draft_form: DraftForm, docs_data: List[SupportDoc]) -> DraftForm:
     """
     Loops through all form fields and calls the corresponding field processor for each field.
 
     Args:
-        form_data: The form data to prefill
+        draft_form: The form data to prefill
         docs_data: The supporting documents to use for context
 
     Returns:
         A dictionary with the updated form data
     """
-    form_fields = form_data["fields"]
-    output_form = form_data.copy()
+    form_fields = draft_form["fields"]
+    output_form = draft_form.copy()
     output_fields = []
     # supporting documents
     context = "\n".join([doc_data_to_string(doc) for doc in docs_data])

@@ -2,9 +2,9 @@ import PyPDF2
 import io
 import streamlit as st
 import os
-from typing import Dict
+from app.models import DraftForm
 
-def parse_pdf_form(form_filepath: str) -> Dict:
+def parse_pdf_form(form_filepath: str) -> DraftForm:
     """
     Parse a PDF form and return the data as a dictionary in the required format.
     """
@@ -79,7 +79,7 @@ def parse_pdf_form(form_filepath: str) -> Dict:
     }
 
 
-def fill_pdf_form(pdf_path: str, filled_form: dict) -> bytes:
+def fill_pdf_form(pdf_path: str, draft_form: DraftForm) -> bytes:
     """
     Fill the PDF form with the provided data and return the filled PDF as bytes.
     Handles various types of PDF form fields including:
@@ -108,7 +108,7 @@ def fill_pdf_form(pdf_path: str, filled_form: dict) -> bytes:
             
             # Create a mapping of field names to their values
             field_values = {}
-            for field in filled_form["fields"]:
+            for field in draft_form["fields"]:
                 label = field["label"]
                 value = field["value"]
                 field_type = field["type"]
