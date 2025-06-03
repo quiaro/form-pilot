@@ -15,6 +15,7 @@ from app.utils.llm import clean_llm_response
 from app.doc_handlers.pdf import parse_pdf_form, fill_pdf_form
 from app.context.loader import context_loader
 from app.form.prefill import prefill_in_memory_form
+from app.utils.misc import save_uploaded_file_to_disk
 
 setup()
 
@@ -23,14 +24,6 @@ nest_asyncio.apply()
 
 # ---------- Streamlit Page Configuration ----------
 st.set_page_config(page_title="AI Document Assistant", layout="wide")
-
-# ---------- Helper: Save Uploaded Files ----------
-def save_uploaded_file(uploaded_file, folder="uploaded_docs"):
-    os.makedirs(folder, exist_ok=True)
-    filepath = os.path.join(folder, uploaded_file.name)
-    with open(filepath, "wb") as f:
-        f.write(uploaded_file.read())
-    return filepath
 
 # ---------- Session State ----------
 if "main_form_path" not in st.session_state:
@@ -51,7 +44,7 @@ with st.sidebar:
         key="main_form_uploader"
     )
     if main_form:
-        st.session_state.main_form_path = save_uploaded_file(main_form)
+        st.session_state.main_form_path = save_uploaded_file_to_disk(main_form)
         st.markdown(f"**✅ Uploaded:** `{main_form.name}`")
 
     st.divider()
@@ -64,7 +57,7 @@ with st.sidebar:
         key="support_docs_uploader"
     )
     if support_docs:
-        st.session_state.support_doc_paths = [save_uploaded_file(doc) for doc in support_docs]
+        st.session_state.support_doc_paths = [save_uploaded_file_to_disk(doc) for doc in support_docs]
         st.markdown("**📎 Support documents uploaded:**")
         for idx, doc in enumerate(support_docs, 1):
             st.markdown(f"{idx}. `{doc.name}`")
