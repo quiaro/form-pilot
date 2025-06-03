@@ -15,6 +15,7 @@ from app.doc_handlers.pdf import parse_pdf_form, fill_pdf_form
 from app.context.loader import context_loader
 from app.form.prefill import prefill_in_memory_form
 from app.utils.misc import save_uploaded_file_to_disk
+from app.form.update import is_form_question, update_draft_form
 
 setup()
 
@@ -22,7 +23,7 @@ setup()
 nest_asyncio.apply()
 
 DEFAULT_AI_GREETING = """
-    Hello! 👋 I'm Form Pilot, your form assistant. How can I help you today? Are you ready to fill out a form, or would you like some guidance on how to proceed?
+    Hello! 👋 I'm Form Pilot, your form assistant. Need to fill out a form? I'm here to help. Please start by uploading a form.
 """
 
 # ---------- Streamlit Page Configuration ----------
@@ -151,6 +152,13 @@ with chat_container:
 if prompt := st.chat_input("Type your message here..."):
     # Add user message to session state
     user_message = HumanMessage(content=prompt)
+
+    previous_message = st.session_state.messages[-1]
+    # Check if the user is submitting an answer to a form field
+    is_user_responding_question = is_form_question(previous_message.content)
+    if is_user_responding_question:
+        # If the user is submitting an answer to a form field, we need to update the draft form
+        st.session_state.draft_form = update_draft_form(st.session_state.draft_form, message.content)
     st.session_state.messages.append(user_message)
 
     # Display user message in chat history immediately

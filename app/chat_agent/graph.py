@@ -98,7 +98,8 @@ async def form_completion_node(state: ChatAgentState) -> Dict[str, Any]:
     unanswered_fields = []
 
     for field in draft_form["fields"]:
-        if field["value"] == "":
+        # TODO: Extend this to support other field types
+        if field["value"] == "" and field["type"] == "text":
             unanswered_fields.append(field)
 
     if len(unanswered_fields) > 0:
