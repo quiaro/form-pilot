@@ -13,13 +13,16 @@ def get_llm(type: str, temperature: float = 0.0):
     Returns:
         An instance of either ChatOpenAI or ChatOllama
     """
-    openai_api_key = os.getenv("OPENAI_API_KEY")
     model_name = os.getenv(type)
+    # TODO: use a more robust way to check if the model is an OpenAI model
+    is_openai_model = model_name.startswith("gpt")
     if model_name is None:
         raise ValueError(f"Model name not found for {type}")
 
-    if openai_api_key:
-        return ChatOpenAI(model=model_name, temperature=temperature, api_key=openai_api_key)
+    if is_openai_model:
+        if not os.getenv("OPENAI_API_KEY"):
+            raise ValueError("OPENAI_API_KEY environment variable is not set")
+        return ChatOpenAI(model=model_name, temperature=temperature)
     else:
         return ChatOllama(model=model_name, temperature=temperature)
 
