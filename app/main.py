@@ -37,8 +37,8 @@ if "main_form_path" not in st.session_state:
     st.session_state.main_form_path = None
 if "support_doc_paths" not in st.session_state:
     st.session_state.support_doc_paths = []
-if "prefilled_form" not in st.session_state:
-    st.session_state.prefilled_form = None
+if "form_draft" not in st.session_state:
+    st.session_state.form_draft = None
 
 # ---------- Sidebar: File Uploads ----------
 with st.sidebar:
@@ -71,7 +71,7 @@ with st.sidebar:
 
     if st.session_state.main_form_path and st.session_state.support_doc_paths:
         if st.button("🔄 Start Over"):
-            for key in ["main_form_path", "support_doc_paths", "prefilled_form"]:
+            for key in ["main_form_path", "support_doc_paths", "form_draft"]:
                 st.session_state[key] = None if "path" in key else []
             st.rerun()
 
@@ -89,7 +89,7 @@ if st.session_state.main_form_path and st.session_state.support_doc_paths:
                 docs_data = asyncio.run(context_loader(st.session_state.support_doc_paths))
 
                 # Step 3: Pre-fill form using AI (async)
-                st.session_state.prefilled_form = asyncio.run(prefill_in_memory_form(parsed_form, docs_data))
+                st.session_state.form_draft = asyncio.run(prefill_in_memory_form(parsed_form, docs_data))
 
                 # Add download buttons for both JSON and PDF formats
                 col1, col2 = st.columns(2)
@@ -100,7 +100,7 @@ if st.session_state.main_form_path and st.session_state.support_doc_paths:
                 with col2:
                     # PDF download
                     try:
-                        filled_pdf_bytes = fill_pdf_form(st.session_state.main_form_path, st.session_state.prefilled_form)
+                        filled_pdf_bytes = fill_pdf_form(st.session_state.main_form_path, st.session_state.form_draft)
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                         pdf_filename = f"form_{timestamp}.pdf"
                         
