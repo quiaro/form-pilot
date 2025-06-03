@@ -44,10 +44,10 @@ if "form_draft" not in st.session_state:
 with st.sidebar:
     st.title("📂 Document Panel")
 
-    st.subheader("1️⃣ Upload Main Form")
+    st.subheader("Upload Form")
     main_form = st.file_uploader(
-        "Upload the main document (PDF, DOCX, TXT, or Image)",
-        type=["pdf", "docx", "txt", "png", "jpg", "jpeg"],
+        "Upload the form document to be filled (PDF)",
+        type=["pdf"],
         key="main_form_uploader"
     )
     if main_form:
@@ -56,7 +56,7 @@ with st.sidebar:
 
     st.divider()
 
-    st.subheader("2️⃣ Upload Support Documents")
+    st.subheader("Upload Support Documents")
     support_docs = st.file_uploader(
         "Upload one or more support documents (PDF, DOCX, TXT, or Images)",
         type=["pdf", "docx", "txt", "png", "jpg", "jpeg"],
@@ -75,47 +75,55 @@ with st.sidebar:
                 st.session_state[key] = None if "path" in key else []
             st.rerun()
 
+
 # ---------- Main Section: Assistant Chat ----------
-st.title("🧑‍🚀 Form Pilot", anchor=False)
-
-if st.session_state.main_form_path and st.session_state.support_doc_paths:
-    if st.button("🚀 Prefill Form"):
-        with st.spinner("⏳ Processing form and documents..."):
-            try:
-                # Step 1: Parse the main form
-                parsed_form = parse_pdf_form(st.session_state.main_form_path)
-
-                # Step 2: Load support documents (async)
-                docs_data = asyncio.run(context_loader(st.session_state.support_doc_paths))
-
-                # Step 3: Pre-fill form using AI (async)
-                st.session_state.form_draft = asyncio.run(prefill_in_memory_form(parsed_form, docs_data))
-
-                # Add download buttons for both JSON and PDF formats
-                col1, col2 = st.columns(2)
-
-                with col1:
-                    st.success("✅ Form filled successfully!")
-
-                with col2:
-                    # PDF download
+with st.container():
+    col1, col2 = st.columns(2)
+    with col1:
+        st.title("🧑‍🚀 Form Pilot", anchor=False)
+    with col2:
+        col_a, col_b, col_c = st.columns(3)
+        
+        with col_b:
+            st.markdown("""
+                <style>
+                    div[data-testid="stButton"] {
+                        text-align: right;
+                    }
+                </style>
+            """, unsafe_allow_html=True)
+            if st.button("🚀 &nbsp;Prefill Form"): 
+                with st.spinner("Prefilling form ..."):
                     try:
-                        filled_pdf_bytes = fill_pdf_form(st.session_state.main_form_path, st.session_state.form_draft)
-                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                        pdf_filename = f"form_{timestamp}.pdf"
-                        
-                        st.download_button(
-                            label="📄 Download Prefilled PDF",
-                            data=filled_pdf_bytes,
-                            file_name=pdf_filename,
-                            mime="application/pdf",
-                            help="Download the filled form in PDF format"
-                        )
-                    except Exception as e:
-                        st.error(f"❌ Error generating PDF: {str(e)}")
+                        # Step 1: Parse the main form
+                        parsed_form = parse_pdf_form(st.session_state.main_form_path)
 
-            except Exception as e:
-                st.error(f"❌ Error running assistant: {str(e)}")
+                        # Step 2: Load support documents (async)
+                        docs_data = asyncio.run(context_loader(st.session_state.support_doc_paths))
+
+                        # Step 3: Pre-fill form using AI (async)
+                        st.session_state.form_draft = asyncio.run(prefill_in_memory_form(parsed_form, docs_data))
+                
+                        st.toast("✅ Form successfully prefilled!")
+
+                    except Exception as e:
+                        st.toast(f"❌ Something went wrong. I just let know my boss.")
+
+        with col_c:
+            if st.session_state.form_draft:
+                filled_pdf_bytes = fill_pdf_form(st.session_state.main_form_path, st.session_state.form_draft)
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                pdf_filename = f"form_{timestamp}.pdf"
+            
+                st.markdown("<div style='text-align: right;'>", unsafe_allow_html=True)
+                st.download_button(
+                    label="⬇️ &nbsp;Download Form",
+                    data=filled_pdf_bytes,
+                    file_name=pdf_filename,
+                    mime="application/pdf",
+                    help="Download the filled form in PDF format",
+                )
+                st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ---------- User Chat ----------
