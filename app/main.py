@@ -37,8 +37,6 @@ if "main_form_path" not in st.session_state:
     st.session_state.main_form_path = None
 if "support_doc_paths" not in st.session_state:
     st.session_state.support_doc_paths = []
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
 if "prefilled_form" not in st.session_state:
     st.session_state.prefilled_form = None
 
@@ -73,7 +71,7 @@ with st.sidebar:
 
     if st.session_state.main_form_path and st.session_state.support_doc_paths:
         if st.button("🔄 Start Over"):
-            for key in ["main_form_path", "support_doc_paths", "chat_history", "prefilled_form"]:
+            for key in ["main_form_path", "support_doc_paths", "prefilled_form"]:
                 st.session_state[key] = None if "path" in key else []
             st.rerun()
 
@@ -120,7 +118,7 @@ if st.session_state.main_form_path and st.session_state.support_doc_paths:
                 st.error(f"❌ Error running assistant: {str(e)}")
 
 
-# ---------- User Q&A Chat ----------
+# ---------- User Chat ----------
 # Initialize the chat graph
 if 'chat_graph' not in st.session_state:
     st.session_state.chat_graph = create_chat_graph()
@@ -130,9 +128,6 @@ if 'chat_graph' not in st.session_state:
 
 # Chat interface
 chat_container = st.container(height=620)
-
-# TODO: Decide if this is needed
-# if st.session_state.prefilled_form and st.session_state.support_doc_paths:
 
 # Display chat message history
 with chat_container:
