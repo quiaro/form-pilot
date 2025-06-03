@@ -141,7 +141,7 @@ with chat_container:
             continue
         elif isinstance(message, AIMessage) and not message.tool_calls:
             with st.chat_message("assistant"):
-                st.write(message.content)
+                st.write(clean_llm_response(message.content))
         elif isinstance(message, HumanMessage):
             with st.chat_message("user"):
                 st.write(message.content)
