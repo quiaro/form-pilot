@@ -7,7 +7,7 @@ from typing import List
 from datetime import datetime
 import json
 import io
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
 from app.chat_agent.prompts import SYSTEM_PROMPT, DEFAULT_AI_GREETING
 from app.chat_agent.graph import create_chat_graph, ChatAgentState
 from app.utils.setup import setup
@@ -137,16 +137,14 @@ chat_container = st.container(height=620)
 # Display chat message history
 with chat_container:
     for message in st.session_state.messages:
-        if isinstance(message, SystemMessage):
+        if isinstance(message, SystemMessage) or isinstance(message, ToolMessage):
             continue
-        if isinstance(message, AIMessage):
-            role = "assistant"
-            content = clean_llm_response(message.content)
-        else:
-            role = "user"
-            content = message.content
-        with st.chat_message(role):
-            st.write(content)
+        elif isinstance(message, AIMessage) and not message.tool_calls:
+            with st.chat_message("assistant"):
+                st.write(message.content)
+        elif isinstance(message, HumanMessage):
+            with st.chat_message("user"):
+                st.write(message.content)
 
 # Chat input
 if prompt := st.chat_input("Type your message here..."):
@@ -160,7 +158,10 @@ if prompt := st.chat_input("Type your message here..."):
             st.write(prompt)
     
     # Create agent state
-    state = ChatAgentState(messages=st.session_state.messages)
+    state = ChatAgentState(
+        messages=st.session_state.messages, 
+        form_filepath=st.session_state.main_form_path
+    )
     
     # Process with the graph
     with st.chat_message("assistant"):
