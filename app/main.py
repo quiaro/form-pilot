@@ -8,7 +8,6 @@ from datetime import datetime
 import json
 import io
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
-from app.chat_agent.prompts import SYSTEM_PROMPT, DEFAULT_AI_GREETING
 from app.chat_agent.graph import create_chat_graph, ChatAgentState
 from app.utils.setup import setup
 from app.utils.llm import clean_llm_response
@@ -21,6 +20,10 @@ setup()
 
 # Patches asyncio to allow nested event loops
 nest_asyncio.apply()
+
+DEFAULT_AI_GREETING = """
+    Hello! 👋 I'm Form Pilot, your form assistant. How can I help you today? Are you ready to fill out a form, or would you like some guidance on how to proceed?
+"""
 
 # ---------- Streamlit Page Configuration ----------
 st.set_page_config(page_title="AI Document Assistant", layout="wide")
@@ -126,7 +129,7 @@ with st.container():
 if 'chat_graph' not in st.session_state:
     st.session_state.chat_graph = create_chat_graph()
     st.session_state.messages = [
-        SystemMessage(content=SYSTEM_PROMPT),
+        SystemMessage(content="You are a friendly and helpful assistant responsible for helping a user fill out a form."),
         AIMessage(content=DEFAULT_AI_GREETING)]
 
 # Chat interface
