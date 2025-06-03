@@ -30,8 +30,8 @@ if "main_form_path" not in st.session_state:
     st.session_state.main_form_path = None
 if "support_doc_paths" not in st.session_state:
     st.session_state.support_doc_paths = []
-if "form_draft" not in st.session_state:
-    st.session_state.form_draft = None
+if "draft_form" not in st.session_state:
+    st.session_state.draft_form = None
 
 # ---------- Sidebar: File Uploads ----------
 with st.sidebar:
@@ -45,6 +45,8 @@ with st.sidebar:
     )
     if main_form:
         st.session_state.main_form_path = save_uploaded_file_to_disk(main_form)
+        # The initial draft form is just the parsed form (not prefilled)
+        st.session_state.draft_form = parse_pdf_form(st.session_state.main_form_path)
         st.markdown(f"**✅ Uploaded:** `{main_form.name}`")
 
     st.divider()
@@ -64,7 +66,7 @@ with st.sidebar:
 
     if st.session_state.main_form_path and st.session_state.support_doc_paths:
         if st.button("🔄 Start Over"):
-            for key in ["main_form_path", "support_doc_paths", "form_draft"]:
+            for key in ["main_form_path", "support_doc_paths", "draft_form"]:
                 st.session_state[key] = None if "path" in key else []
             st.rerun()
 
@@ -95,7 +97,7 @@ with st.container():
                         docs_data = asyncio.run(context_loader(st.session_state.support_doc_paths))
 
                         # Step 3: Pre-fill form using AI (async)
-                        st.session_state.form_draft = asyncio.run(prefill_in_memory_form(parsed_form, docs_data))
+                        st.session_state.draft_form = asyncio.run(prefill_in_memory_form(parsed_form, docs_data))
                 
                         st.toast("✅ Form successfully prefilled!")
 
@@ -103,8 +105,8 @@ with st.container():
                         st.toast(f"❌ Something went wrong. I just let know my boss.")
 
         with col_c:
-            if st.session_state.form_draft:
-                filled_pdf_bytes = fill_pdf_form(st.session_state.main_form_path, st.session_state.form_draft)
+            if st.session_state.draft_form:
+                filled_pdf_bytes = fill_pdf_form(st.session_state.main_form_path, st.session_state.draft_form)
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 pdf_filename = f"form_{timestamp}.pdf"
             
@@ -156,6 +158,7 @@ if prompt := st.chat_input("Type your message here..."):
     # Create agent state
     state = ChatAgentState(
         messages=st.session_state.messages, 
+        draft_form=st.session_state.draft_form,
         form_filepath=st.session_state.main_form_path
     )
     
