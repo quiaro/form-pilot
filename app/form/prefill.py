@@ -171,6 +171,7 @@ async def list_box_field_processor(field: FormField, context: str) -> FormField:
     """
     Process a list box field using the LLM.
     """
+    # TODO: Test implementation
     try:
         # Extract information from context
         prompt = f"""Select all applicable options for {field['label']} from the following options: {field['options']}
@@ -222,9 +223,11 @@ async def prefill_in_memory_form(draft_form: DraftForm, docs_data: List[SupportD
             if field["type"] == "text":
                 output_field = await text_field_processor(field, context)
             elif field["type"] == "checkbox":
-                output_field = checkbox_field_processor(field, context)
+                # output_field = checkbox_field_processor(field, context)
+                pass
             elif field["type"] == "dropdown":
-                output_field = dropdown_field_processor(field, context)
+                # output_field = dropdown_field_processor(field, context)
+                pass
             else:
                 raise ValueError(f"Unsupported field type: {field['type']}")
         except Exception as e:
