@@ -13,18 +13,25 @@ import json
 import datetime
 from app.utils.llm import get_llm
 from langgraph.prebuilt import ToolNode
+from app.models import DraftForm
+from app.form.inquire import field_surveyor
 
 @dataclass
 class ChatAgentState:
     messages: Annotated[List[BaseMessage], operator.add]
     form_filepath: str = None
+    draft_form: DraftForm = None
 
 llm = None
 
 @tool
-def get_current_time() -> str:
-    """Get the current date and time."""
-    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+def fill_form() -> str:
+    """Fill the form."""
+    # HACK: Best way yet to route to the form completion node
+    # from the initial chat agent. Perhaps this could be 
+    # replaced with a router LLM that decides where to route 
+    # (chat agent, form completion node or other nodes)
+    return "Proceed to fill the form"
 
 async def chat_agent(state: ChatAgentState) -> Dict[str, Any]:
     messages = state.messages
@@ -38,8 +45,23 @@ async def chat_agent(state: ChatAgentState) -> Dict[str, Any]:
     response = await llm.ainvoke(messages_with_context)
     return {"messages" : [response]}
 
-tools = [get_current_time]
+tools = [fill_form]
 tool_node = ToolNode(tools=tools)
+
+async def form_completion_node(state: ChatAgentState) -> Dict[str, Any]:
+    draft_form = state.draft_form
+    unanswered_fields = []
+
+    for field in draft_form["fields"]:
+        if field["value"] == "":
+            unanswered_fields.append(field)
+
+    if len(unanswered_fields) > 0:
+        unanswered_field = unanswered_fields[0]
+        question = await field_surveyor(draft_form["fields"], unanswered_field)
+        return {"messages" : [AIMessage(content=f"[{len(unanswered_fields)} fields left] {question}")]}
+    else:
+        return {"messages" : [AIMessage(content="All fields have been answered. Feel free to download the form or start filling in a new one. Thank you for using Form Pilot!")]}
 
 def should_continue(state):
     last_message = state.messages[-1]
@@ -61,6 +83,7 @@ def create_chat_graph():
     # Add nodes
     workflow.add_node("chat_agent", chat_agent)
     workflow.add_node("tools", tool_node)
+    workflow.add_node("form_completion_node", form_completion_node)
     
     # Set entry point
     workflow.set_entry_point("chat_agent")
@@ -68,6 +91,7 @@ def create_chat_graph():
         "chat_agent",
         should_continue
     )
-    workflow.add_edge("tools", "chat_agent")
+    workflow.add_edge("tools", "form_completion_node")
+    workflow.add_edge("form_completion_node", END)
 
     return workflow.compile()
