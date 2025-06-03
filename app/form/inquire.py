@@ -43,7 +43,7 @@ async def text_field_surveyor(form_fields: List[FormField], unanswered_field: Fo
     Ask a polite and clear question that will help the user answer the field. /no_think
     """
 
-    model = ChatOllama(model=os.getenv("QUESTIONS_LLM"), temperature=0.2)
+    model = ChatOllama(model=os.getenv("QUESTIONS_LLM"), temperature=0.0)
     response = await model.ainvoke(PROMPT)
     question = clean_llm_response(response.content)
     return question

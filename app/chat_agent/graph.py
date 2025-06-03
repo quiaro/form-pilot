@@ -126,7 +126,7 @@ async def supervisor_node(state: ChatAgentState) -> Dict[str, Any]:
 # Create the graph
 def create_chat_graph():
     global llm
-    llm = get_llm(type="CHAT_LLM", temperature=0.2)
+    llm = get_llm(type="CHAT_LLM", temperature=0.0)
     
     workflow = StateGraph(ChatAgentState)
     
