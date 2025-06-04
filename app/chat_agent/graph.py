@@ -25,8 +25,80 @@ class ChatAgentState:
 
 llm = None
 
-def create_supervisor(llm, system_prompt, members, members_descriptions) -> str:
+async def workflow_guide_node(state: ChatAgentState) -> Dict[str, Any]:
+    SYSTEM_PROMPT = """
+    You are a friendly and cheerful assistant. 
+    You will guide the user through the following workflow:
+
+    1. User uploads the form that needs to be completed
+    2. User uploads any support documents relevant to the form.
+    3. User fills out any empty fields in the form with the help of the FormInquirer.
+    /no_think
+    """
+    prompt = ChatPromptTemplate([
+            ("system", SYSTEM_PROMPT),
+            MessagesPlaceholder(variable_name="messages"),   
+    ])
+    messages = prompt.format_messages(messages=state.messages)
+    response = await llm.ainvoke(messages)
+    return {"messages" : [response]}
+
+
+async def form_assistant_node(state: ChatAgentState) -> Dict[str, Any]:
+    SYSTEM_PROMPT = """
+    You are a friendly and cheerful assistant. 
+    You help the user by answering any questions they might have about the form.
+    The form is as follows:
+    <form>
+        {draft_form}
+    </form>
+    /no_think
+    """
+    prompt = ChatPromptTemplate([
+            ("system", SYSTEM_PROMPT),
+            MessagesPlaceholder(variable_name="messages"),   
+    ])
+    messages = prompt.format_messages(messages=state.messages, draft_form=state.draft_form)
+    response = await llm.ainvoke(messages)
+    return {"messages" : [response]}
+
+async def form_inquirer_node(state: ChatAgentState) -> Dict[str, Any]:
+    print("FormInquirer")
+    return {"messages" : [AIMessage(content="I am a form inquirer. I will ask you one question about the form.")]}
+
+# async def form_inquirer_node(state: ChatAgentState) -> Dict[str, Any]:
+#     draft_form = state.draft_form
+#     unanswered_fields = []
+
+#     for field in draft_form["fields"]:
+#         # TODO: Extend this to support other field types
+#         if field["value"] == "" and field["type"] == "text":
+#             unanswered_fields.append(field)
+
+#     if len(unanswered_fields) > 0:
+#         unanswered_field = unanswered_fields[0]
+#         question = await field_surveyor(draft_form["fields"], unanswered_field)
+#         return {"messages" : [AIMessage(content=f"[{len(unanswered_fields)} fields left] {question}")]}
+#     else:
+#         return {"messages" : [AIMessage(content="All fields have been answered. Feel free to download the form or start filling in a new one. Thank you for using Form Pilot!")]}
+
+
+async def supervisor_node(state: ChatAgentState) -> Dict[str, Any]:
+    """Wrapper node for the supervisor to handle state properly"""
+    global llm
     """An LLM-based router."""
+    
+    members = ["WorkflowGuide", "FormAssistant", "FormInquirer"]
+    members_descriptions = """
+    WorkflowGuide explains the workflow to the user.
+    FormAssistant tells the user information about the form.
+    FormInquirer asks the user a question related to one of the empty form fields.
+    """
+
+    SYSTEM_PROMPT = """
+    You are a supervisor responsible for helping a user fill out a form. 
+    /no_think
+    """
     function_def = {
         "name": "route",
         "description": "Select the next role.",
@@ -44,84 +116,16 @@ def create_supervisor(llm, system_prompt, members, members_descriptions) -> str:
             "required": ["next"],
         },
     }
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", system_prompt),
-            MessagesPlaceholder(variable_name="messages"),
-            (
-                "system",
-                "{members_descriptions}. Given the conversation above, who should act next? Select one of: {members}."
-            ),
-        ]
-    ).partial(members=str(members), members_descriptions=str(members_descriptions))
+    prompt = ChatPromptTemplate([
+        ("system", SYSTEM_PROMPT),
+        MessagesPlaceholder(variable_name="messages"),
+        ("system", "Based on this conversation, you must decide which of the following workers needs to act next. {members_descriptions} Select one of: {members}."),
+    ])
+    messages = prompt.format_messages(messages=state.messages, members=members, members_descriptions=members_descriptions)
     
-    async def supervisor_chain(state: ChatAgentState):
-        # Extract messages from state and pass to prompt
-        result = await (
-            prompt
-            | llm.bind_functions(functions=[function_def], function_call="route")
-            | JsonOutputFunctionsParser()
-        ).ainvoke({"messages": state.messages})
-        return result
-    
-    return supervisor_chain
-
-
-async def workflow_guide_node(state: ChatAgentState) -> Dict[str, Any]:
-    messages = state.messages
-
-    system_prompt = """
-    You are a friendly and cheerful assistant whose goal is to guide the user through a workflow.
-    If the user is not familiar with the workflow, guide them through it.
-
-    The workflow is as follows:    
-    1. User uploads the form that needs to be completed
-    2. User uploads any support documents relevant to the form.
-    3. User fills out any remaining empty fields in the form.
-
-    You help the user stay focused on the workflow.
-    /no_think
-    """
-
-    if state.form_filepath:
-        upload_message = "Form upload check: form uploaded."
-    else:
-        upload_message = "Form upload check: no form uploaded."
-    extended_messages = messages + [SystemMessage(content=system_prompt)] + [AIMessage(content=upload_message)]
-
-    response = await llm.ainvoke(extended_messages)
-    return {"messages" : [response]}
-
-
-async def form_completion_node(state: ChatAgentState) -> Dict[str, Any]:
-    draft_form = state.draft_form
-    unanswered_fields = []
-
-    for field in draft_form["fields"]:
-        # TODO: Extend this to support other field types
-        if field["value"] == "" and field["type"] == "text":
-            unanswered_fields.append(field)
-
-    if len(unanswered_fields) > 0:
-        unanswered_field = unanswered_fields[0]
-        question = await field_surveyor(draft_form["fields"], unanswered_field)
-        return {"messages" : [AIMessage(content=f"[{len(unanswered_fields)} fields left] {question}")]}
-    else:
-        return {"messages" : [AIMessage(content="All fields have been answered. Feel free to download the form or start filling in a new one. Thank you for using Form Pilot!")]}
-
-
-async def supervisor_node(state: ChatAgentState) -> Dict[str, Any]:
-    """Wrapper node for the supervisor to handle state properly"""
-    global llm
-    supervisor_agent = create_supervisor(llm, 
-        "You are a supervisor responsible for helping a user fill out a form. You must decide which worker needs to act next.",
-        ["WorkflowGuide", "FormCompletionAssistant"],
-        ("WorkflowGuide explains the workflow to the user and prompts them to upload a form. "
-         "FormCompletionAssistant helps the user fill out the form after it has been uploaded.")
-    )
-    
-    result = await supervisor_agent(state)
-    return {"next": result["next"]}
+    llm.bind_functions(functions=[function_def], function_call="route")
+    response = await llm.ainvoke(messages)
+    return {"next": response.content}
     
 # Create the graph
 def create_chat_graph():
@@ -132,17 +136,23 @@ def create_chat_graph():
     
     # Add nodes
     workflow.add_node("WorkflowGuide", workflow_guide_node)
-    workflow.add_node("FormCompletionAssistant", form_completion_node)
+    workflow.add_node("FormAssistant", form_assistant_node)
+    workflow.add_node("FormInquirer", form_inquirer_node)
     workflow.add_node("Supervisor", supervisor_node)
     
     # Connect nodes
     workflow.add_conditional_edges(
         "Supervisor",
         lambda state: state.next,
-        {"WorkflowGuide": "WorkflowGuide", "FormCompletionAssistant": "FormCompletionAssistant"}
+        {
+            "WorkflowGuide": "WorkflowGuide",
+            "FormAssistant": "FormAssistant", 
+            "FormInquirer": "FormInquirer"
+        }
     )
     workflow.add_edge("WorkflowGuide", END)
-    workflow.add_edge("FormCompletionAssistant", END)
+    workflow.add_edge("FormAssistant", END)
+    workflow.add_edge("FormInquirer", END)
     
     # Set entry point
     workflow.set_entry_point("Supervisor")    

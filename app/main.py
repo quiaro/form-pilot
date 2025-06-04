@@ -16,6 +16,7 @@ from app.context.loader import context_loader
 from app.form.prefill import prefill_in_memory_form
 from app.utils.misc import save_uploaded_file_to_disk
 from app.form.update import is_form_question, update_draft_form
+from app.chat_agent.helpers import feedback_on_file_upload
 
 setup()
 
@@ -29,13 +30,18 @@ DEFAULT_AI_GREETING = """
 # ---------- Streamlit Page Configuration ----------
 st.set_page_config(page_title="AI Document Assistant", layout="wide")
 
-# ---------- Session State ----------
+# ---------- Initialize Session State ----------
 if "main_form_path" not in st.session_state:
     st.session_state.main_form_path = None
 if "support_doc_paths" not in st.session_state:
     st.session_state.support_doc_paths = []
 if "draft_form" not in st.session_state:
     st.session_state.draft_form = None
+if 'chat_graph' not in st.session_state:
+    st.session_state.chat_graph = create_chat_graph()
+    st.session_state.messages = [
+        SystemMessage(content="You are a friendly and helpful assistant responsible for helping a user fill out a form."),
+        AIMessage(content=DEFAULT_AI_GREETING)]
 
 # ---------- Sidebar: File Uploads ----------
 with st.sidebar:
@@ -45,13 +51,17 @@ with st.sidebar:
     main_form = st.file_uploader(
         "Upload the form document to be filled (PDF)",
         type=["pdf"],
-        key="main_form_uploader"
+        key="main_form_uploader",
     )
-    if main_form:
+    if main_form and not st.session_state.main_form_path:
         st.session_state.main_form_path = save_uploaded_file_to_disk(main_form)
         # The initial draft form is just the parsed form (not prefilled)
         st.session_state.draft_form = parse_pdf_form(st.session_state.main_form_path)
+        feedback = asyncio.run(feedback_on_file_upload(st.session_state.chat_graph, st.session_state.messages, st.session_state.draft_form))
+        # Append it to the message history
+        st.session_state.messages.extend(feedback)
         st.markdown(f"**✅ Uploaded:** `{main_form.name}`")
+        st.rerun()
 
     st.divider()
 
@@ -124,14 +134,6 @@ with st.container():
                 )
                 st.markdown("</div>", unsafe_allow_html=True)
 
-
-# ---------- User Chat ----------
-# Initialize the chat graph
-if 'chat_graph' not in st.session_state:
-    st.session_state.chat_graph = create_chat_graph()
-    st.session_state.messages = [
-        SystemMessage(content="You are a friendly and helpful assistant responsible for helping a user fill out a form."),
-        AIMessage(content=DEFAULT_AI_GREETING)]
 
 # Chat interface
 chat_container = st.container(height=620)
