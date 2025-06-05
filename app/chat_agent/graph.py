@@ -62,25 +62,23 @@ async def form_assistant_node(state: ChatAgentState) -> Dict[str, Any]:
     response = await llm.ainvoke(messages)
     return {"messages" : [response]}
 
+
 async def form_inquirer_node(state: ChatAgentState) -> Dict[str, Any]:
-    print("FormInquirer")
-    return {"messages" : [AIMessage(content="I am a form inquirer. I will ask you one question about the form.")]}
+    draft_form = state.draft_form
+    messages = state.messages
+    unanswered_fields = []
 
-# async def form_inquirer_node(state: ChatAgentState) -> Dict[str, Any]:
-#     draft_form = state.draft_form
-#     unanswered_fields = []
+    for field in draft_form["fields"]:
+        # TODO: Extend this to support other field types
+        if field["value"] == "" and field["type"] == "text":
+            unanswered_fields.append(field)
 
-#     for field in draft_form["fields"]:
-#         # TODO: Extend this to support other field types
-#         if field["value"] == "" and field["type"] == "text":
-#             unanswered_fields.append(field)
-
-#     if len(unanswered_fields) > 0:
-#         unanswered_field = unanswered_fields[0]
-#         question = await field_surveyor(draft_form["fields"], unanswered_field)
-#         return {"messages" : [AIMessage(content=f"[{len(unanswered_fields)} fields left] {question}")]}
-#     else:
-#         return {"messages" : [AIMessage(content="All fields have been answered. Feel free to download the form or start filling in a new one. Thank you for using Form Pilot!")]}
+    if len(unanswered_fields) > 0:
+        unanswered_field = unanswered_fields[0]
+        question = await field_surveyor(draft_form["fields"], unanswered_field)
+        return {"messages" : [AIMessage(content=f"[fields left: {len(unanswered_fields)}] {question}")]}
+    else:
+        return {"messages" : [AIMessage(content="All fields have been answered. Feel free to download the form. Thank you for using Form Pilot!")]}
 
 
 async def supervisor_node(state: ChatAgentState) -> Dict[str, Any]:

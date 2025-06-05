@@ -1,8 +1,17 @@
+import re
 from typing import Any, List, Dict
 from langgraph.graph.graph import CompiledGraph
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from app.chat_agent.graph import ChatAgentState
 from app.models import DraftForm, FormField
+
+def is_form_question(message: str) -> bool:
+    """
+    Check if the message is a question about a form field.
+    The message should be of the form: [fields left: <number>] <question_text>
+    """
+    pattern = r'^\[fields left: \d+\].*\?$'
+    return bool(re.match(pattern, message))
 
 async def trigger_chat_agent_response(agent_graph: CompiledGraph, messages: List[BaseMessage], human_message: str, **kwargs: Any) -> str:
     """

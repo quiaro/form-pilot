@@ -10,13 +10,15 @@ import io
 import copy
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
 from app.chat_agent.graph import create_chat_graph, ChatAgentState
+from app.chat_agent.helpers import is_form_question
 from app.utils.setup import setup
 from app.utils.llm import clean_llm_response
 from app.doc_handlers.pdf import parse_pdf_form, fill_pdf_form
 from app.context.loader import load_file_into_context
 from app.form.prefill import prefill_in_memory_form
 from app.utils.misc import save_file_to_disk
-from app.form.update import is_form_question, update_draft_form, get_prefilled_fields_status
+from app.form.update import update_draft_form
+from app.form.status import get_prefilled_fields_status, check_if_form_complete
 from app.chat_agent.helpers import feedback_on_file_upload, feedback_on_support_docs_update
 
 setup()
@@ -93,6 +95,8 @@ if "context_docs" not in st.session_state:
 if "draft_form" not in st.session_state:
     st.session_state.previous_draft_form = None
     st.session_state.draft_form = None
+if "is_form_complete" not in st.session_state:
+    st.session_state.is_form_complete = False
 if 'chat_graph' not in st.session_state:
     st.session_state.chat_graph = create_chat_graph()
     st.session_state.messages = [
@@ -178,40 +182,47 @@ with chat_container:
             with st.chat_message("user"):
                 st.write(message.content)
 
-# Chat input
-if prompt := st.chat_input("Type your message here..."):
-    # Add user message to session state
-    user_message = HumanMessage(content=prompt)
+if not st.session_state.is_form_complete:
+    if prompt := st.chat_input("Type your message here..."):
+        # Add user message to session state
+        user_message = HumanMessage(content=prompt)
 
-    previous_message = st.session_state.messages[-1]
-    # Check if the user is submitting an answer to a form field
-    is_user_responding_question = is_form_question(previous_message.content)
-    if is_user_responding_question:
-        # If the user is submitting an answer to a form field, we need to update the draft form
-        st.session_state.draft_form = update_draft_form(st.session_state.draft_form, message.content)
-    st.session_state.messages.append(user_message)
+        previous_message = st.session_state.messages[-1]
+        # Check if the user is submitting an answer to a form field
+        is_user_responding_question = is_form_question(previous_message.content)
+        if is_user_responding_question:
+            # If the user is submitting an answer to a form field, we need to update the draft form
+            st.session_state.draft_form = update_draft_form(st.session_state.draft_form, user_message.content)
+        st.session_state.messages.append(user_message)
 
-    # Display user message in chat history immediately
-    with chat_container:
-        with st.chat_message("user"):
-            st.write(prompt)
-    
-    # Create agent state
-    state = ChatAgentState(
-        messages=st.session_state.messages, 
-        draft_form=st.session_state.draft_form,
-        form_filepath=st.session_state.main_form_path
-    )
-    
-    # Process with the graph
-    with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            try:
-                # With nest_asyncio, this should work even in nested loops
-                result = asyncio.run(st.session_state.chat_graph.ainvoke(state))
-            except Exception as e:
-                st.error(f"Error processing request: {e}")
-            
-            # Update session state
-            st.session_state.messages = result["messages"]
+        # Display user message in chat history immediately
+        with chat_container:
+            with st.chat_message("user"):
+                st.write(prompt)
+
+        # Hide chat input when form is complete or in a specific state
+        st.session_state.is_form_complete = check_if_form_complete(st.session_state.draft_form)
+
+        if st.session_state.is_form_complete:
+            done_message = AIMessage(content="All fields have been answered. Feel free to download the form. Thank you for using Form Pilot!")
+            st.session_state.messages.append(done_message)
             st.rerun()
+        else:
+            state = ChatAgentState(
+                messages=st.session_state.messages, 
+                draft_form=st.session_state.draft_form,
+                form_filepath=st.session_state.main_form_path
+            )
+            
+            # Process with the graph
+            with st.chat_message("assistant"):
+                with st.spinner("Thinking..."):
+                    try:
+                        # With nest_asyncio, this should work even in nested loops
+                        result = asyncio.run(st.session_state.chat_graph.ainvoke(state))
+                    except Exception as e:
+                        st.error(f"Error processing request: {e}")
+                    
+                    # Update session state
+                    st.session_state.messages = result["messages"]
+                    st.rerun()
