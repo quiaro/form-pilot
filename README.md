@@ -58,18 +58,23 @@ To see/change the models used, edit the `.env` file.
 
 ### Run Locally
 
-1. Install dependencies and create virtual environment with `uv`
+1. Set the port for running the Streamlit app. By default, the app runs on port 7860. The port can be changed in the `./streamlit/config.toml` file.
+
+2. Install dependencies and create virtual environment with `uv`
 
    ```
    uv sync
    ```
 
-2. Run the app on http://0.0.0.0:7860/
+3. Run the app on http://localhost:7860/.
+
    ```
    streamlit run app/main.py
    ```
 
-> If you wish to change any settings to the frontend of the app, edit `config.toml` in the `.streamlit` folder. Follow the [Streamlit configuration instructions](https://docs.streamlit.io/develop/api-reference/configuration).
+4. For a better dev experience, set `runOnSave = true` in `./streamlit/config.toml`. This way, the Streamlit server refreshes when it detects changes.
+
+> If you wish to change any settings to the Streamlit app, edit `./streamlit/config.toml`. Follow the [Streamlit configuration instructions](https://docs.streamlit.io/develop/api-reference/configuration).
 
 ### Run in Docker container
 
@@ -98,3 +103,4 @@ To see/change the models used, edit the `.env` file.
 1. User can ask the app to edit any field at any time
 2. Manage `retries` for answering a field
 3. More error handling for thrown errors
+4. Look for "TODO" in the code
