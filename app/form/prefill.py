@@ -30,15 +30,32 @@ def doc_data_to_string(doc_data: Dict) -> str:
     """
 
 def parse_llm_response(response):
+    """
+    Parse the LLM response into a dictionary.
+    """
+    # Remove markdown code blocks if present
+    content = response.strip()
+    
+    # Remove ```json and ``` markers
+    if content.startswith('```json'):
+        content = content[7:]  # Remove ```json
+    elif content.startswith('```'):
+        content = content[3:]   # Remove ```
+    
+    if content.endswith('```'):
+        content = content[:-3]  # Remove closing ```
+    
+    content = content.strip()
+    
     try:
-        data = json.loads(response.strip())
+        data = json.loads(content)
         # Ensure required keys exist with defaults
         return {
             "value": data.get("value", ""),
             "docId": data.get("docId")
         }
     except json.JSONDecodeError as e:
-        raise ValueError(f"Failed to parse JSON response: {e}")
+        raise ValueError(f"Failed to parse JSON: {e}")
 
 async def text_field_processor(field: FormField, context: str) -> FormField:
     """
@@ -46,32 +63,42 @@ async def text_field_processor(field: FormField, context: str) -> FormField:
     """
     llm = get_llm("PREFILL_LLM")
 
-    PROMPT = """
-        You are a helpful assistant whose task is to answer a field in a form to the best of your ability.
-        You are given information about the field and context to answer. 
-        You can only use the context to answer the field.
+    SYSTEM_PROMPT = """
+        Your task is to find the answers for fields in a form.
+        You are given the following context to answer the fields:
 
-        Respond with valid JSON only. Do not wrap in code blocks or add explanatory text.
+        <context>
+            {context}
+        </context>
 
-        Examples of correct responses:
-        {{"value": "John Smith", "docId": "doc123"}}
+        Respond with valid JSON only.
+
+        Example of correct response:
+        {{"value": <field_value>, "docId": <document_id>}}
+
+        You can only use the context to answer the fields. 
+        If the context is not enough to answer, you can only return an empty value:
         {{"value": "", "docId": null}}
-
-        Rules:
-        - If context lacks information: {{"value": "", "docId": null}}
-        - If context has information: {{"value": "your_answer", "docId": "source_document_id"}}
-        - Use null (not None) for missing docId
-        - Keep answers succinct
-
-        Field information: 
-        - Label: {field[label]}
-        - Description: {field[description]}
-        - Type: {field[type]}
-
-        Context: {context}
     """
-    rag_prompt = ChatPromptTemplate.from_template(PROMPT)
-    messages = rag_prompt.format_messages(field=field, context=context)
+    prompt = ChatPromptTemplate([
+        ("system", SYSTEM_PROMPT),
+        ("user", """Please answer the following field:
+            <field>
+                <label>
+                    {field[label]}
+                </label>
+                <description>
+                    {field[description]}
+                </description>
+                <type>
+                    {field[type]}
+                </type>
+            </field>
+            If you don't know the answer, please return an empty value.
+            """
+        )
+    ])
+    messages = prompt.format_messages(field=field, context=context)
 
     response = await llm.ainvoke(messages)
     output_field = field.copy()

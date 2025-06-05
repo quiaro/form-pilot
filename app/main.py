@@ -7,16 +7,17 @@ from typing import List
 from datetime import datetime
 import json
 import io
+import copy
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
 from app.chat_agent.graph import create_chat_graph, ChatAgentState
 from app.utils.setup import setup
 from app.utils.llm import clean_llm_response
 from app.doc_handlers.pdf import parse_pdf_form, fill_pdf_form
-from app.context.loader import context_loader
+from app.context.loader import load_file_into_context
 from app.form.prefill import prefill_in_memory_form
-from app.utils.misc import save_uploaded_file_to_disk
-from app.form.update import is_form_question, update_draft_form
-from app.chat_agent.helpers import feedback_on_file_upload
+from app.utils.misc import save_file_to_disk
+from app.form.update import is_form_question, update_draft_form, get_prefilled_fields_status
+from app.chat_agent.helpers import feedback_on_file_upload, feedback_on_support_docs_update
 
 setup()
 
@@ -26,6 +27,27 @@ nest_asyncio.apply()
 DEFAULT_AI_GREETING = """
     Hello! 👋 I'm Form Pilot, your form assistant. Need to fill out a form? I'm here to help. Please start by uploading a form.
 """
+SUPPORT_DOCS_PATH = os.path.join(os.getcwd(), os.getenv("SUPPORT_DOCS_PATH"))
+FORMS_PATH = os.path.join(os.getcwd(), os.getenv("FORMS_PATH"))
+
+async def on_support_docs_change():
+    """Process support docs whenever the uploader changes"""   
+    for doc in st.session_state.support_docs:
+        if doc.name not in st.session_state.uploaded_doc_names and st.session_state.main_form_path:
+            filepath = save_file_to_disk(doc, SUPPORT_DOCS_PATH)
+            support_doc = await load_file_into_context(filepath)
+            st.session_state.context_docs.append(support_doc)
+            prefilled_form = await prefill_in_memory_form(st.session_state.draft_form, st.session_state.context_docs)
+            st.session_state.draft_form = prefilled_form
+            st.session_state.uploaded_doc_names.append(doc.name)
+    
+    # TODO: Handle the removal of support docs
+    # For now, we're only addressing the addition of support docs, not the removal
+    fields_changes = get_prefilled_fields_status(st.session_state.previous_draft_form, st.session_state.draft_form)    
+    feedback = await feedback_on_support_docs_update(st.session_state.chat_graph, fields_changes)
+    # Append it to the message history
+    st.session_state.messages.extend(feedback)
+    st.session_state.previous_draft_form = copy.deepcopy(st.session_state.draft_form)
 
 # ---------- Streamlit Page Configuration ----------
 st.set_page_config(page_title="AI Document Assistant", layout="wide")
@@ -33,9 +55,12 @@ st.set_page_config(page_title="AI Document Assistant", layout="wide")
 # ---------- Initialize Session State ----------
 if "main_form_path" not in st.session_state:
     st.session_state.main_form_path = None
-if "support_doc_paths" not in st.session_state:
-    st.session_state.support_doc_paths = []
+if "support_docs" not in st.session_state:
+    st.session_state.uploaded_doc_names = []
+if "context_docs" not in st.session_state:
+    st.session_state.context_docs = []
 if "draft_form" not in st.session_state:
+    st.session_state.previous_draft_form = None
     st.session_state.draft_form = None
 if 'chat_graph' not in st.session_state:
     st.session_state.chat_graph = create_chat_graph()
@@ -54,35 +79,25 @@ with st.sidebar:
         key="main_form_uploader",
     )
     if main_form and not st.session_state.main_form_path:
-        st.session_state.main_form_path = save_uploaded_file_to_disk(main_form)
+        st.session_state.main_form_path = save_file_to_disk(main_form, FORMS_PATH)
         # The initial draft form is just the parsed form (not prefilled)
         st.session_state.draft_form = parse_pdf_form(st.session_state.main_form_path)
+        st.session_state.previous_draft_form = copy.deepcopy(st.session_state.draft_form)
         feedback = asyncio.run(feedback_on_file_upload(st.session_state.chat_graph, st.session_state.messages, st.session_state.draft_form))
         # Append it to the message history
         st.session_state.messages.extend(feedback)
-        st.markdown(f"**✅ Uploaded:** `{main_form.name}`")
         st.rerun()
 
     st.divider()
 
     st.subheader("Upload Support Documents")
-    support_docs = st.file_uploader(
+    st.file_uploader(
         "Upload one or more support documents (PDF, DOCX, TXT, or Images)",
         type=["pdf", "docx", "txt", "png", "jpg", "jpeg"],
         accept_multiple_files=True,
-        key="support_docs_uploader"
+        key="support_docs",
+        on_change=lambda: asyncio.run(on_support_docs_change())
     )
-    if support_docs:
-        st.session_state.support_doc_paths = [save_uploaded_file_to_disk(doc) for doc in support_docs]
-        st.markdown("**📎 Support documents uploaded:**")
-        for idx, doc in enumerate(support_docs, 1):
-            st.markdown(f"{idx}. `{doc.name}`")
-
-    if st.session_state.main_form_path and st.session_state.support_doc_paths:
-        if st.button("🔄 Start Over"):
-            for key in ["main_form_path", "support_doc_paths", "draft_form"]:
-                st.session_state[key] = None if "path" in key else []
-            st.rerun()
 
 
 # ---------- Main Section: Assistant Chat ----------
@@ -94,31 +109,6 @@ with st.container():
         col_a, col_b, col_c = st.columns(3)
         
         with col_b:
-            st.markdown("""
-                <style>
-                    div[data-testid="stButton"] {
-                        text-align: right;
-                    }
-                </style>
-            """, unsafe_allow_html=True)
-            if st.button("🚀 &nbsp;Prefill Form"): 
-                with st.spinner("Prefilling form ..."):
-                    try:
-                        # Step 1: Parse the main form
-                        parsed_form = parse_pdf_form(st.session_state.main_form_path)
-
-                        # Step 2: Load support documents (async)
-                        docs_data = asyncio.run(context_loader(st.session_state.support_doc_paths))
-
-                        # Step 3: Pre-fill form using AI (async)
-                        st.session_state.draft_form = asyncio.run(prefill_in_memory_form(parsed_form, docs_data))
-                
-                        st.toast("✅ Form successfully prefilled!")
-
-                    except Exception as e:
-                        st.toast(f"❌ Something went wrong. I just let know my boss.")
-
-        with col_c:
             if st.session_state.draft_form:
                 filled_pdf_bytes = fill_pdf_form(st.session_state.main_form_path, st.session_state.draft_form)
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -133,6 +123,11 @@ with st.container():
                     help="Download the filled form in PDF format",
                 )
                 st.markdown("</div>", unsafe_allow_html=True)
+
+        with col_c:
+            st.markdown("<div style='text-align: right;'>", unsafe_allow_html=True)
+            st.button("🔄 Start Over")           
+            st.markdown("</div>", unsafe_allow_html=True)            
 
 
 # Chat interface

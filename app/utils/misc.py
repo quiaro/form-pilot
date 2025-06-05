@@ -1,8 +1,12 @@
 import os
+from streamlit.runtime.uploaded_file_manager import UploadedFile
 
-def save_uploaded_file_to_disk(uploaded_file, folder="uploaded_docs"):
-    os.makedirs(folder, exist_ok=True)
-    filepath = os.path.join(folder, uploaded_file.name)
+def save_file_to_disk(file: UploadedFile, path: str) -> str:
+    """
+    Save a file to disk and return the path.
+    """
+    os.makedirs(path, exist_ok=True)
+    filepath = os.path.join(path, file.name)
     with open(filepath, "wb") as f:
-        f.write(uploaded_file.read())
+        f.write(file.read())
     return filepath

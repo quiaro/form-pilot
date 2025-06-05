@@ -7,6 +7,7 @@
 __pycache__
 /app/docs/context/
 /app/docs/checkpoints/
-/uploaded_docs/
+/support_docs/
+/forms/
 
 node_modules

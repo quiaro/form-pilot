@@ -7,7 +7,8 @@ def word_document_loader(filepath: str) -> SupportDoc:
     """
     Load a Word document into a doc dictionary
     """
-    doc_id = filepath + "__" + datetime.now().strftime("%Y%m%d%H%M%S")
+    # Return only the filename as the docId
+    doc_id = filepath.split("/")[-1]
     date_created = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     docs = list(UnstructuredWordDocumentLoader(filepath, mode="single").lazy_load())
     content = "".join([doc.page_content for doc in docs])
