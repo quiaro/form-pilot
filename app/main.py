@@ -30,6 +30,34 @@ DEFAULT_AI_GREETING = """
 SUPPORT_DOCS_PATH = os.path.join(os.getcwd(), os.getenv("SUPPORT_DOCS_PATH"))
 FORMS_PATH = os.path.join(os.getcwd(), os.getenv("FORMS_PATH"))
 
+# ---------- Streamlit Page Configuration ----------
+st.set_page_config(page_title="Form Pilot", layout="wide")
+
+# Custom CSS to change button colors
+st.markdown("""
+<style>
+.stFileUploader button:hover,
+.stDownloadButton button:hover,
+.stButton > button:hover,
+.stFileUploader button:active,
+.stDownloadButton button:active,
+.stButton > button:active {
+    border-color: #c9a912;
+    color: #f4c707;
+}
+.stFileUploader button:focus,
+.stDownloadButton button:focus,
+.stButton > button:focus {
+    border-color: #c9a912 !important;
+    color: #f4c707 !important;
+    outline: 2px solid #c9a912 !important;
+}
+.stChatInput > div:focus-within {
+    border-color: #f4c707 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 def reset_session_state():
     """Clear all session state variables"""
     # TODO: Clear file uploaders too
@@ -54,9 +82,6 @@ async def on_support_docs_change():
     # Append it to the message history
     st.session_state.messages.extend(feedback)
     st.session_state.previous_draft_form = copy.deepcopy(st.session_state.draft_form)
-
-# ---------- Streamlit Page Configuration ----------
-st.set_page_config(page_title="AI Document Assistant", layout="wide")
 
 # ---------- Initialize Session State ----------
 if "main_form_path" not in st.session_state:
