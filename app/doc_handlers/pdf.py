@@ -114,20 +114,22 @@ def fill_pdf_form(pdf_path: str, draft_form: DraftForm) -> bytes:
                 field_type = field["type"]
                 
                 # Handle different field types
-                if field_type == "checkbox_group":
-                    # For checkbox groups, we need to map each checkbox individually
-                    if isinstance(value, list):
-                        for i, checkbox_value in enumerate(value):
-                            checkbox_name = field["options"][i] if i < len(field["options"]) else f"{label}_{i+1}"
-                            field_values[checkbox_name] = checkbox_value
-                elif field_type == "list_box":
-                    # For list boxes, ensure we have a list of values
-                    field_values[label] = value if isinstance(value, list) else [value]
-                else:
-                    # For other fields, use the value as is
-                    field_values[label] = value
+                # TODO: Add support for checkbox groups and list boxes
+                # if field_type == "checkbox_group":
+                #     # For checkbox groups, we need to map each checkbox individually
+                #     if isinstance(value, list):
+                #         for i, checkbox_value in enumerate(value):
+                #             checkbox_name = field["options"][i] if i < len(field["options"]) else f"{label}_{i+1}"
+                #             field_values[checkbox_name] = checkbox_value
+                # elif field_type == "list_box":
+                #     # For list boxes, ensure we have a list of values
+                #     field_values[label] = value if isinstance(value, list) else [value]
+                # else:
+                # For other fields, use the value as is
+                field_values[label] = value
             
             # Update the writer's form fields
+            # TODO: Will this work for forms with more than one page?
             writer.update_page_form_field_values(writer.pages[0], field_values)
             
             # Write to bytes buffer
