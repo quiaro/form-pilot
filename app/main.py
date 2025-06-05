@@ -30,6 +30,12 @@ DEFAULT_AI_GREETING = """
 SUPPORT_DOCS_PATH = os.path.join(os.getcwd(), os.getenv("SUPPORT_DOCS_PATH"))
 FORMS_PATH = os.path.join(os.getcwd(), os.getenv("FORMS_PATH"))
 
+def reset_session_state():
+    """Clear all session state variables"""
+    # TODO: Clear file uploaders too
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+
 async def on_support_docs_change():
     """Process support docs whenever the uploader changes"""   
     for doc in st.session_state.support_docs:
@@ -126,7 +132,9 @@ with st.container():
 
         with col_c:
             st.markdown("<div style='text-align: right;'>", unsafe_allow_html=True)
-            st.button("🔄 Start Over")           
+            if st.button("🔄 &nbsp;Start Over"):
+                reset_session_state()
+                st.rerun()  
             st.markdown("</div>", unsafe_allow_html=True)            
 
 
