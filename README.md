@@ -13,16 +13,17 @@ short_description: Agentic app to make filling PDF forms effortless.
 
 # Form Pilot
 
-Agentic app to make filling PDF forms effortless. Upload a PDF form and let the agent do the rest. This app uses [Streamlit](https://docs.streamlit.io/) in the frontend and [LangGraph](https://langchain-ai.github.io/langgraph/concepts/why-langgraph/) in the backend, plus other great packages listed in `pyproject.toml`.
+Agentic app to make filling PDF forms effortless. Upload a PDF form and let the agent do the rest. This app uses [Streamlit](https://docs.streamlit.io/) and [LangGraph](https://langchain-ai.github.io/langgraph/concepts/why-langgraph/), plus other great packages listed in `pyproject.toml`.
 
 ## How it works
 
 1. User uploads an empty or incomplete PDF form
-2. User uploads any supporting documents for the form
-3. The app prefills the form with any data that exists in the supporting documents
+2. User uploads any support documents related to the form
+3. The app prefills the form with any data that exists in the support documents
 4. For the fields that were not prefilled, the app will ask the user for the answers to these fields
-5. When the app is done requesting information from the user, the user can view a preview of the completed PDF form
+5. When the app is done requesting information from the user, the user is prompted to download the PDF form
 6. The user can download the completed PDF form
+7. The app's agent chat bot guides the user through the process
 
 ## Setup and Installation
 
@@ -85,69 +86,15 @@ To see/change the models used, edit the `.env` file.
 
 ## Roadmap
 
-- User can ask the app to edit any field at any time
-- Replace text interface with voice
-
-## Test Strings
-
-A test server can be run to test specific aspects of the backend code:
-
-```
-python -m app.endpoints
-```
-
-- Test parsing of the PDF form
-
-```
-curl -X POST "http://localhost:7861/api/parse_pdf_form" -H "Content-Type: application/json" -d '{"pdf_file": "app/docs/forms/form-example.pdf"}'
-```
-
-- Test the loading of supporting documents into memory (to test this, create a Word document with information related to the fields in the form)
-
-```
-curl -X POST http://localhost:7861/api/load_context  -H "Content-Type: application/json"   -d '{"document_filepaths": ["app/docs/context/info.docx"]}'
-```
-
-- Test pre-filling of a form using supporting documents
-
-```
-curl -X POST http://localhost:7861/api/pre_fill_form  -H "Content-Type: application/json"   -d '{"form_data": {"formFileName":"app/docs/forms/form-example.pdf","lastSaved":"","fields":[{"label":"Given Name Text Box","description":"First name","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Family Name Text Box","description":"Last name","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Address 1 Text Box","description":"","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"House nr Text Box","description":"House and floor","type":"text","docId":null,"value":"ewresd fdsf wr","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Address 2 Text Box","description":"","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Postcode Text Box","description":"","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"City Text Box","description":"","type":"text","docId":null,"value":"erewrs erter tertret ert ertertd fsdf ","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Country Combo Box","description":"Use selection or write country name","type":"dropdown","docId":null,"value":"ert t ert","options":["Austria","Belgium","Britain","Bulgaria","Croatia","Cyprus","Czech-Republic","Denmark","Estonia","Finland","France","Germany","Greece","Hungary","Ireland","Italy","Latvia","Lithuania","Luxembourg","Malta","Netherlands","Poland","Portugal","Romania","Slovakia","Slovenia","Spain","Sweden"],"lastProcessed":"","lastSurveyed":""},{"label":"Gender List Box","description":"Select from list","type":"dropdown","docId":null,"value":"Man","options":["Man","Woman"],"lastProcessed":"","lastSurveyed":""},{"label":"Height Formatted Field","description":"Value from 40 to 250 cm","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Favourite Colour List Box","description":"Select from colour spectrum","type":"dropdown","docId":null,"value":"Red","options":["Black","Brown","Red","Orange","Yellow","Green","Blue","Violet","Grey","White"],"lastProcessed":"","lastSurveyed":""},{"label":"Driving License Check Box","description":"Car driving license","type":"checkbox_group","docId":null,"value":["/Off"],"options":["Driving License Check Box"],"lastProcessed":"","lastSurveyed":""},{"label":"Language  Check Box","description":"","type":"checkbox_group","docId":null,"value":["/Off","/Yes","/Off","/Off","/Off"],"options":["Language 1 Check Box","Language 2 Check Box","Language 3 Check Box","Language 4 Check Box","Language 5 Check Box"],"lastProcessed":"","lastSurveyed":""}]}, "docs_data": [{"docId":"app/docs/context/david-q_info.docx__20250530185312","docType":"docx","dateCreated":"2025-05-30 18:53:12","content":"Name: David\n\nHeight: 170cm\n\nAddress: \n\nUrbanización La Antigua \n\nCalle Jade, Casa #435\n\nTres Ríos, Cartago\n\nZip code: 30301"}]}'
-```
-
-- Test asking a question related to an unanswered form field
-
-```
-curl -X POST http://localhost:7861/api/complete_form_field -H "Content-Type: application/json"  -d '{"form_data": {"formFileName":"app/docs/forms/form-example.pdf","lastSaved":"","fields":[{"label":"Given Name Text Box","description":"First name","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Family Name Text Box","description":"Last name","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Address 1 Text Box","description":"","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"House nr Text Box","description":"House and floor","type":"text","docId":null,"value":"ewresd fdsf wr","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Address 2 Text Box","description":"","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Postcode Text Box","description":"","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"City Text Box","description":"","type":"text","docId":null,"value":"erewrs erter tertret ert ertertd fsdf ","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Country Combo Box","description":"Use selection or write country name","type":"dropdown","docId":null,"value":"ert t ert","options":["Austria","Belgium","Britain","Bulgaria","Croatia","Cyprus","Czech-Republic","Denmark","Estonia","Finland","France","Germany","Greece","Hungary","Ireland","Italy","Latvia","Lithuania","Luxembourg","Malta","Netherlands","Poland","Portugal","Romania","Slovakia","Slovenia","Spain","Sweden"],"lastProcessed":"","lastSurveyed":""},{"label":"Gender List Box","description":"Select from list","type":"dropdown","docId":null,"value":"Man","options":["Man","Woman"],"lastProcessed":"","lastSurveyed":""},{"label":"Height Formatted Field","description":"Value from 40 to 250 cm","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Favourite Colour List Box","description":"Select from colour spectrum","type":"dropdown","docId":null,"value":"Red","options":["Black","Brown","Red","Orange","Yellow","Green","Blue","Violet","Grey","White"],"lastProcessed":"","lastSurveyed":""},{"label":"Driving License Check Box","description":"Car driving license","type":"checkbox_group","docId":null,"value":["/Off"],"options":["Driving License Check Box"],"lastProcessed":"","lastSurveyed":""},{"label":"Language  Check Box","description":"","type":"checkbox_group","docId":null,"value":["/Off","/Yes","/Off","/Off","/Off"],"options":["Language 1 Check Box","Language 2 Check Box","Language 3 Check Box","Language 4 Check Box","Language 5 Check Box"],"lastProcessed":"","lastSurveyed":""}]}, "unanswered_field": {"label":"Given Name Text Box","description":"First name","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""}}'
-```
-
-```
-curl -X POST http://localhost:7861/api/complete_form_field -H "Content-Type: application/json"  -d '{"form_data": {"formFileName":"app/docs/forms/form-example.pdf","lastSaved":"","fields":[{"label":"Given Name Text Box","description":"First name","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Family Name Text Box","description":"Last name","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Address 1 Text Box","description":"","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"House nr Text Box","description":"House and floor","type":"text","docId":null,"value":"ewresd fdsf wr","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Address 2 Text Box","description":"","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""}]}, "unanswered_field": {"label":"Address 1 Text Box","description":"","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":"", "retries": 0, "valid": false}}'
-```
-
-- Test judging the answer to an unanswered form field
-
-> Invalid answer
-
-```
-curl -X POST http://localhost:7861/api/judge_answer -H "Content-Type: application/json"  -d '{"form_data": {"formFileName":"app/docs/forms/form-example.pdf","lastSaved":"","fields":[{"label":"Given Name Text Box","description":"First name","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Family Name Text Box","description":"Last name","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Address 1 Text Box","description":"","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"House nr Text Box","description":"House and floor","type":"text","docId":null,"value":"ewresd fdsf wr","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Address 2 Text Box","description":"","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Postcode Text Box","description":"","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"City Text Box","description":"","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""}]}, "unanswered_field": {"label":"City Text Box","description":"","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":"", "retries": 0, "valid": false}, "answer": "upstairs"}'
-```
-
-> Valid answer
-
-```
-curl -X POST http://localhost:7861/api/judge_answer -H "Content-Type: application/json"  -d '{"form_data": {"formFileName":"app/docs/forms/form-example.pdf","lastSaved":"","fields":[{"label":"Given Name Text Box","description":"First name","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Family Name Text Box","description":"Last name","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Address 1 Text Box","description":"","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"House nr Text Box","description":"House and floor","type":"text","docId":null,"value":"ewresd fdsf wr","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Address 2 Text Box","description":"","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"Postcode Text Box","description":"","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""},{"label":"City Text Box","description":"","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":""}]}, "unanswered_field": {"label":"City Text Box","description":"","type":"text","docId":null,"value":"","options":[],"lastProcessed":"","lastSurveyed":"", "retries": 0, "valid": false}, "answer": "cartago"}'
-```
+1. Extend the app to work with other fields types in forms besides `text` inputs
+2. Integrate judge for user's answers (`/graphs/judge_answer.py`) (is the answer `valid`?)
+3. Extend support for other support document types (images, pdf, xls, etc.)
+4. Optimize for longer forms
+5. Add ability to preview PDF form
+6. Replace text interface with voice
 
 ## TODO List
 
-1. Integrate graphs with Streamlit UI
-2. Complete the implementation of the `complete_form_field` graph
-3. Test `manage_form_completion`
-4. Synthesize graphs
-5. Persist completed PDF form to disk
-6. Add ability to preview PDF form
-7. Add ability to download PDF form
-8. Make the application more robust by completing other TODOs
-9. Error handling for thrown errors
-10. Give AgentStates in graphs more descriptive names and clean up code
-11. Write brief summary of the app's features i.e. add Features section in README.md
+1. User can ask the app to edit any field at any time
+2. Manage `retries` for answering a field
+3. More error handling for thrown errors
